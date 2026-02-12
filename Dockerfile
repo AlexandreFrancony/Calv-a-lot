@@ -18,8 +18,8 @@ COPY . .
 # Créer le dossier data pour SQLite
 RUN mkdir -p /app/data
 
-# Run as non-root user
-RUN groupadd -r appgroup && useradd -r -g appgroup -d /app appuser \
+# Run as non-root user (UID 1000 pour matcher l'utilisateur hôte sur le volume monté)
+RUN groupadd -g 1000 appgroup && useradd -u 1000 -g appgroup -d /app appuser \
     && chown -R appuser:appgroup /app
 USER appuser
 
