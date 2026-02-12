@@ -63,23 +63,21 @@ EOF
 
 > **Remplace** les valeurs `demander_a_alex`, `ta_cle_api_binance`, `ton_secret_api_binance` et `INITIAL_BUDGET_EUR` par tes vraies valeurs.
 
-### 3. Lancer
+### 3. Configurer le nom de domaine local
+
+```bash
+echo "127.0.0.1   calvalot.local" | sudo tee -a /etc/hosts
+```
+
+### 4. Lancer
 
 ```bash
 docker compose up -d
 ```
 
-### 4. Acceder au dashboard
+### 5. Acceder au dashboard
 
-Ouvre http://localhost:8080 dans ton navigateur.
-
-Pour un acces plus pratique avec un nom de domaine local, ajoute dans `/etc/hosts` :
-
-```
-127.0.0.1   calvalot.local
-```
-
-Puis accede via http://calvalot.local:8080
+Ouvre http://calvalot.local:8080 dans ton navigateur.
 
 ## Modes de trading
 
