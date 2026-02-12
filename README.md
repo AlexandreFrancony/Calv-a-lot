@@ -66,22 +66,19 @@ EOF
 ### 3. Lancer
 
 ```bash
-docker compose up -d
+chmod +x start.sh
+./start.sh
 ```
 
-### 4. Acceder au dashboard
-
-Recupere l'IP locale du Pi :
-```bash
-hostname -I | awk '{print $1}'
+L'URL du dashboard s'affiche automatiquement a la fin :
+```
+==========================================
+  Calv-a-lot is running!
+  Dashboard: http://192.168.1.42:8080
+==========================================
 ```
 
-Puis ouvre dans un navigateur (PC, telephone, tablette sur le meme reseau Wi-Fi) :
-```
-http://<IP_DU_PI>:8080
-```
-
-Par exemple : `http://192.168.1.42:8080`
+Ouvre cette URL dans un navigateur (PC, telephone, tablette sur le meme reseau Wi-Fi).
 
 ## Modes de trading
 
@@ -133,8 +130,8 @@ Toutes les 2 minutes, Calv-a-lot :
 ## Commandes utiles
 
 ```bash
-# Demarrer
-docker compose up -d
+# Demarrer (affiche l'URL du dashboard)
+./start.sh
 
 # Voir les logs en temps reel
 docker compose logs -f
