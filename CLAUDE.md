@@ -10,13 +10,36 @@
 ## Project Structure
 ```
 Calv-a-lot/
-├── config/         # Settings, coin definitions
+├── config/
+│   ├── settings.py             # Env vars (LEADER_URL, SIGNAL_SECRET, Binance)
+│   └── coins.py                # USDC trading pairs
 ├── app/
-│   ├── routes/     # Flask API endpoints
-│   ├── services/   # Business logic (exchange, poller, follower, budget)
-│   └── static/     # Dashboard HTML
-├── data/           # SQLite database (Docker volume)
-└── docker-compose.yml
+│   ├── __init__.py             # Flask factory + services init + poller start
+│   ├── db.py                   # SQLite WAL mode, thread-local connections
+│   ├── models.py               # CRUD (sqlite3 ? placeholders)
+│   ├── routes/
+│   │   ├── health.py           # GET /health
+│   │   ├── dashboard.py        # GET / (sert le HTML)
+│   │   ├── budget.py           # API budget, deposit
+│   │   ├── trades.py           # API trades et positions
+│   │   ├── signals.py          # API signaux reçus
+│   │   └── agent.py            # Pause/resume poller
+│   ├── services/
+│   │   ├── exchange.py         # Client Binance (copié de Cash-a-lot)
+│   │   ├── market_data.py      # Prix + EUR/USDC rate (simplifié)
+│   │   ├── budget_manager.py   # Budget sans AI tracking
+│   │   ├── poller.py           # Thread polling + HMAC signing
+│   │   └── follower.py         # Logique de réplication des trades
+│   └── static/
+│       └── index.html          # Dashboard vert (Tailwind, favicon 🐋, crypto icons)
+├── data/                       # Volume Docker pour SQLite
+│   └── calvalot.db
+├── docker-compose.yml          # Single service (follower)
+├── Dockerfile                  # Python 3.11-slim, UID 1000 (match host user), non-root
+├── gunicorn.conf.py            # 1 worker, 2 threads, preload_app=False
+├── start.sh                    # Lance Docker + affiche l'URL du dashboard avec IP locale
+├── requirements.txt
+└── .env.example
 ```
 
 ## Key Patterns
@@ -61,9 +84,18 @@ Calv-a-lot/
 - If total portfolio value < 5€ → agent DEAD (permanent)
 - No AI budget tracking (pas d'appels API AI)
 
+## Dashboard
+- Version: v1.0
+- Favicon 🐋 (inline SVG)
+- Crypto icons via CoinCap CDN (`assets.coincap.io/assets/icons/{symbol}@2x.png`) dans Positions et Trades
+- Leader Status: connecté/déconnecté, dernier signal reçu
+
 ## Important Notes
 - `.env` changes require `docker compose down && docker compose up -d`
 - French comments preferred
-- Dashboard version: v1.0
 - SQLite DB stored in `./data/calvalot.db` (Docker volume)
 - USDC must be in **Spot wallet** on Binance
+- Dockerfile utilise UID 1000 (`useradd -u 1000`) pour matcher l'utilisateur host (évite les erreurs de permissions SQLite)
+- `start.sh` : lance docker compose + affiche l'URL dashboard avec l'IP locale du Pi
+- Mode dry_run indépendant de Cash-a-lot (peut simuler pendant que le leader est en live)
+- Pas de webhook auto-deploy (déployé localement chez les amis, pas sur le Pi central)
