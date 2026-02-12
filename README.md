@@ -63,29 +63,25 @@ EOF
 
 > **Remplace** les valeurs `demander_a_alex`, `ta_cle_api_binance`, `ton_secret_api_binance` et `INITIAL_BUDGET_EUR` par tes vraies valeurs.
 
-### 3. Configurer le nom de domaine local
-
-**Linux / macOS :**
-```bash
-echo "127.0.0.1   calvalot.local" | sudo tee -a /etc/hosts
-```
-
-**Windows** (PowerShell en administrateur) :
-```powershell
-Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "127.0.0.1   calvalot.local"
-```
-
-> Si Calv-a-lot tourne sur une autre machine du reseau (ex: Raspberry Pi), remplace `127.0.0.1` par l'IP de cette machine (ex: `192.168.1.XX`).
-
-### 4. Lancer
+### 3. Lancer
 
 ```bash
 docker compose up -d
 ```
 
-### 5. Acceder au dashboard
+### 4. Acceder au dashboard
 
-Ouvre http://calvalot.local:8080 dans ton navigateur.
+Recupere l'IP locale du Pi :
+```bash
+hostname -I | awk '{print $1}'
+```
+
+Puis ouvre dans un navigateur (PC, telephone, tablette sur le meme reseau Wi-Fi) :
+```
+http://<IP_DU_PI>:8080
+```
+
+Par exemple : `http://192.168.1.42:8080`
 
 ## Modes de trading
 
