@@ -175,6 +175,12 @@
     let currentPrices = {};
     let currentPeriod = '1w';
 
+    // Icônes crypto via CoinCap CDN
+    function coinIcon(symbol) {
+        var s = symbol.replace('USDC','').replace('USDT','').toLowerCase();
+        return '<img src="https://assets.coincap.io/assets/icons/' + s + '@2x.png" alt="' + s + '" class="w-5 h-5 inline-block rounded-full mr-1.5 align-middle" onerror="this.style.display=\'none\'">';
+    }
+
     async function fetchJSON(url) {
         try {
             var res = await fetch(url);
@@ -264,7 +270,7 @@
             var pnl = value - p.total_invested_usdt;
             var pnlPct = p.total_invested_usdt > 0 ? (pnl / p.total_invested_usdt * 100) : 0;
             return '<tr class="border-t border-gray-700">' +
-                '<td class="py-2 font-semibold">' + p.coin.replace('USDC','') + '</td>' +
+                '<td class="py-2 font-semibold">' + coinIcon(p.coin) + p.coin.replace('USDC','') + '</td>' +
                 '<td class="py-2">' + p.quantity.toFixed(6) + '</td>' +
                 '<td class="py-2">$' + p.avg_entry_price.toFixed(2) + '</td>' +
                 '<td class="py-2">$' + p.total_invested_usdt.toFixed(2) + '</td>' +
@@ -336,7 +342,7 @@
             var simBadge = t.is_simulated ? ' <span class="text-xs text-gray-500">[SIM]</span>' : '';
             return '<tr class="border-t border-gray-700">' +
                 '<td class="py-2 text-xs">' + time + '</td>' +
-                '<td class="py-2 font-semibold">' + t.coin.replace('USDC','') + '</td>' +
+                '<td class="py-2 font-semibold">' + coinIcon(t.coin) + t.coin.replace('USDC','') + '</td>' +
                 '<td class="py-2 ' + actionClass + '">' + t.action + simBadge + '</td>' +
                 '<td class="py-2">$' + Number(t.amount_usdt).toFixed(2) + '</td>' +
                 '<td class="py-2">$' + Number(t.price).toFixed(2) + '</td>' +
