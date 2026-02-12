@@ -65,9 +65,17 @@ EOF
 
 ### 3. Configurer le nom de domaine local
 
+**Linux / macOS :**
 ```bash
 echo "127.0.0.1   calvalot.local" | sudo tee -a /etc/hosts
 ```
+
+**Windows** (PowerShell en administrateur) :
+```powershell
+Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "127.0.0.1   calvalot.local"
+```
+
+> Si Calv-a-lot tourne sur une autre machine du reseau (ex: Raspberry Pi), remplace `127.0.0.1` par l'IP de cette machine (ex: `192.168.1.XX`).
 
 ### 4. Lancer
 
