@@ -1,0 +1,51 @@
+# Calv-a-lot - Copy-Trading Follower pour Cash-a-lot
+# Suit les décisions de trading de Cash-a-lot via polling
+#
+# Usage:
+#   docker compose up -d
+
+services:
+  follower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: calvalot
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      LEADER_URL: ${LEADER_URL:?LEADER_URL is required}
+      SIGNAL_SECRET: ${SIGNAL_SECRET:?SIGNAL_SECRET is required}
+      BINANCE_API_KEY: ${BINANCE_API_KEY:?Binance API key required}
+      BINANCE_API_SECRET: ${BINANCE_API_SECRET:?Binance API secret required}
+      BINANCE_TESTNET: ${BINANCE_TESTNET:-true}
+      TRADING_MODE: ${TRADING_MODE:-dry_run}
+      INITIAL_BUDGET_EUR: ${INITIAL_BUDGET_EUR:-100}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-120}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 120s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 192M
