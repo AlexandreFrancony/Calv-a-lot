@@ -66,6 +66,7 @@ Calv-a-lot/
 - `GET /api/budget/withdrawals` — Historique retraits
 - `GET /api/trades` — Recent trades
 - `GET /api/positions` — Current positions
+- `GET /api/prices` — Prix courants (pour P&L dashboard)
 - `GET /api/signals` — Historique des signaux reçus
 - `GET /api/agent/status` — Poller status
 - `POST /api/agent/toggle` — Pause/resume poller

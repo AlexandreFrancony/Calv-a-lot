@@ -16,3 +16,17 @@ def get_trades():
 def get_positions():
     positions = models.get_positions()
     return jsonify(positions)
+
+
+@trades_bp.route("/api/prices")
+def get_prices():
+    """Prix courants pour le dashboard (positions P&L)."""
+    from app.services.poller import _follower
+    if not _follower:
+        return jsonify({})
+    try:
+        prices = _follower.market.get_prices()
+        # Convertir Decimal → float pour JSON
+        return jsonify({k: float(v) for k, v in prices.items()})
+    except Exception:
+        return jsonify({})

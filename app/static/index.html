@@ -524,8 +524,13 @@
         setTimeout(function() { statusEl.className = 'text-xs mt-1 hidden'; }, 10000);
     }
 
+    async function updatePrices() {
+        var prices = await fetchJSON('/api/prices');
+        if (prices) currentPrices = prices;
+    }
+
     async function refreshAll() {
-        await Promise.all([updateBudget(), updateAgent(), updateSignals(), updateWithdrawals()]);
+        await Promise.all([updateBudget(), updateAgent(), updateSignals(), updateWithdrawals(), updatePrices()]);
         await updatePositions();
         await updateTrades();
         await updateChart();
