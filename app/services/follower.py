@@ -213,6 +213,18 @@ class Follower:
 
     def _execute_buy(self, coin, amount_usdt, signal_id, prices, total_value_usdt, positions):
         """Exécute un achat. Le leader gère déjà le cap par position."""
+        # Vérifier le cash disponible en simulation (évite le cash négatif)
+        if self.is_simulated:
+            available = self._get_cash_balance()
+            if available < amount_usdt:
+                if available >= Decimal(str(Settings.MIN_ORDER_USDC)):
+                    logger.info(f"BUY {coin}: réduit ${float(amount_usdt):.2f} -> ${float(available):.2f} (cash dispo)")
+                    amount_usdt = available
+                else:
+                    reason = f"BUY {coin}: cash insuffisant (${float(available):.2f} dispo, ${float(amount_usdt):.2f} voulu)"
+                    logger.warning(f"Skip {reason}")
+                    return {"skipped": True, "reason": reason}
+
         # Minimum Binance
         if amount_usdt < Decimal(str(Settings.MIN_ORDER_USDC)):
             reason = f"BUY {coin}: ${float(amount_usdt):.2f} < min ${Settings.MIN_ORDER_USDC}"
