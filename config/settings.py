@@ -19,8 +19,7 @@ class Settings:
     POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "120"))
 
     # Sécurité trading
-    MAX_POSITION_PCT = 0.30    # Max 30% du portfolio dans un coin
-    MIN_ORDER_USDC = 10.0      # Minimum Binance (10 USDC)
+    MIN_ORDER_USDC = 5.0       # Minimum Binance (5 USDC)
     MIN_BUDGET_EUR = 5.0       # Agent meurt en-dessous
 
     # Email alerts (optionnel)

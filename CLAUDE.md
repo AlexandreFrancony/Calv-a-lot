@@ -49,6 +49,8 @@ Calv-a-lot/
 - Thread-based poller (pas APScheduler)
 - HMAC-SHA256 authentication avec Cash-a-lot
 - Polling pull model (Calv-a-lot interroge, pas besoin d'ouvrir de ports)
+- Pas de cap MAX_POSITION_PCT — le follower fait confiance aux décisions du leader
+- Signal status amélioré : "skipped" (orange) quand toutes les actions sont en dessous du minimum Binance
 
 ## Trading Pairs (USDC — MiCA Europe)
 - BTCUSDC, ETHUSDC, BNBUSDC, SOLUSDC, XRPUSDC

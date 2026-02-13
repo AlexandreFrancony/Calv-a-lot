@@ -60,12 +60,18 @@ class Follower:
         # Exécuter chaque action
         executed = 0
         errors = []
+        skips = []
         for action in actions:
             try:
                 result = self._execute_action(
                     action, signal_id, prices, total_value_usdt, positions,
                 )
-                if result:
+                if result is None:
+                    # Action ignorée (pct <= 0 ou échec exchange)
+                    continue
+                if isinstance(result, dict) and result.get("skipped"):
+                    skips.append(result["reason"])
+                elif result:
                     executed += 1
             except Exception as e:
                 logger.error(f"Erreur exécution {action}: {e}")
@@ -92,10 +98,13 @@ class Follower:
         # Mettre à jour le status du signal
         if errors:
             models.update_signal_status(signal_id, "error", "; ".join(errors))
+        elif executed == 0 and skips:
+            # Toutes les actions ont été skippées — pas un vrai "executed"
+            models.update_signal_status(signal_id, "skipped", "; ".join(skips))
         else:
             models.update_signal_status(signal_id, "executed")
 
-        logger.info(f"=== Signal {signal_id}: {executed} trade(s) exécuté(s) ===")
+        logger.info(f"=== Signal {signal_id}: {executed} trade(s), {len(skips)} skip(s) ===")
         return {"status": "ok", "trades_executed": executed}
 
     def _execute_action(self, action, signal_id, prices, total_value_usdt, positions):
@@ -122,21 +131,12 @@ class Follower:
         return None
 
     def _execute_buy(self, coin, amount_usdt, signal_id, prices, total_value_usdt, positions):
-        """Exécute un achat."""
-        # Vérifier max 30% par coin
-        pos = next((p for p in positions if p["coin"] == coin), None)
-        current_invested = Decimal(str(pos["total_invested_usdt"])) if pos else Decimal(0)
-        max_allowed = total_value_usdt * Decimal(str(Settings.MAX_POSITION_PCT))
-        if current_invested + amount_usdt > max_allowed:
-            amount_usdt = max_allowed - current_invested
-            if amount_usdt <= 0:
-                logger.info(f"Skip BUY {coin}: max position atteint")
-                return None
-
+        """Exécute un achat. Le leader gère déjà le cap par position."""
         # Minimum Binance
         if amount_usdt < Decimal(str(Settings.MIN_ORDER_USDC)):
-            logger.info(f"Skip BUY {coin}: ${float(amount_usdt):.2f} < min ${Settings.MIN_ORDER_USDC}")
-            return None
+            reason = f"BUY {coin}: ${float(amount_usdt):.2f} < min ${Settings.MIN_ORDER_USDC}"
+            logger.info(f"Skip {reason}")
+            return {"skipped": True, "reason": reason}
 
         result = self.exchange.execute_market_buy(coin, float(amount_usdt))
         if not result:
@@ -163,12 +163,15 @@ class Follower:
         """Exécute une vente."""
         pos = next((p for p in positions if p["coin"] == coin), None)
         if not pos or Decimal(str(pos["quantity"])) <= 0:
-            logger.info(f"Skip SELL {coin}: pas de position")
-            return None
+            reason = f"SELL {coin}: pas de position"
+            logger.info(f"Skip {reason}")
+            return {"skipped": True, "reason": reason}
 
         price = prices.get(coin)
         if not price or price == 0:
-            return None
+            reason = f"SELL {coin}: prix indisponible"
+            logger.warning(f"Skip {reason}")
+            return {"skipped": True, "reason": reason}
 
         qty_to_sell = amount_usdt / price
         available = Decimal(str(pos["quantity"]))
@@ -178,8 +181,9 @@ class Follower:
         # Minimum Binance
         sell_value = qty_to_sell * price
         if sell_value < Decimal(str(Settings.MIN_ORDER_USDC)):
-            logger.info(f"Skip SELL {coin}: ${float(sell_value):.2f} < min ${Settings.MIN_ORDER_USDC}")
-            return None
+            reason = f"SELL {coin}: ${float(sell_value):.2f} < min ${Settings.MIN_ORDER_USDC}"
+            logger.info(f"Skip {reason}")
+            return {"skipped": True, "reason": reason}
 
         result = self.exchange.execute_market_sell(coin, float(qty_to_sell))
         if not result:
