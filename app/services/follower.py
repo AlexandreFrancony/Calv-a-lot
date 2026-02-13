@@ -107,6 +107,87 @@ class Follower:
         logger.info(f"=== Signal {signal_id}: {executed} trade(s), {len(skips)} skip(s) ===")
         return {"status": "ok", "trades_executed": executed}
 
+    def sync_to_leader(self, portfolio_state):
+        """Sync initial : calque l'allocation du leader sur le capital local.
+
+        Appelé uniquement quand le follower est vierge (aucune position).
+        Utilise le portfolio_state du dernier signal pour acheter
+        proportionnellement au capital local.
+        """
+        logger.info("=== Sync initial sur le leader ===")
+
+        # Vérifier qu'on peut trader
+        can_trade, reason = self.budget_mgr.can_trade()
+        if not can_trade:
+            logger.warning(f"Sync impossible: {reason}")
+            return {"synced": False, "reason": reason}
+
+        # Calculer notre capital
+        prices = self.market.get_prices()
+        cash_usdt = self._get_cash_balance()
+        if cash_usdt <= 0:
+            logger.warning("Sync impossible: pas de capital")
+            return {"synced": False, "reason": "No capital"}
+
+        # Positions cibles du leader
+        leader_positions = portfolio_state.get("positions", [])
+        if not leader_positions:
+            logger.info("Sync: le leader n'a aucune position (100% cash)")
+            return {"synced": False, "reason": "Leader has no positions"}
+
+        total_local = cash_usdt  # 100% cash au démarrage
+        executed = 0
+        skips = []
+
+        for lp in leader_positions:
+            coin = lp["coin"]
+            pct = lp.get("pct_of_portfolio", 0)
+            if pct <= 0:
+                continue
+
+            amount_usdt = Decimal(str(pct)) * total_local
+
+            # Minimum Binance
+            if amount_usdt < Decimal(str(Settings.MIN_ORDER_USDC)):
+                reason = f"BUY {coin}: ${float(amount_usdt):.2f} < min"
+                logger.info(f"Skip sync {reason}")
+                skips.append(reason)
+                continue
+
+            result = self.exchange.execute_market_buy(coin, float(amount_usdt))
+            if not result:
+                skips.append(f"BUY {coin}: exchange error")
+                continue
+
+            # Enregistrer le trade avec signal_id = "initial_sync"
+            trade_id = models.insert_trade(
+                coin=coin, action="BUY",
+                amount_usdt=float(result["amount_usdt"]),
+                price=float(result["price"]),
+                quantity=float(result["quantity"]),
+                fee_usdt=float(result.get("fee", 0)),
+                signal_id="initial_sync",
+                is_simulated=result["simulated"],
+            )
+            self._update_position(coin, "BUY", result)
+            executed += 1
+            logger.info(f"Sync trade #{trade_id}: BUY {coin} ${float(result['amount_usdt']):.2f}")
+
+        # Sauver un snapshot
+        eur_rate = self.market.get_eurusdc_rate()
+        cash_usdt = self._get_cash_balance()
+        positions = models.get_positions()
+        portfolio_value = self._calc_portfolio_value(positions, prices)
+        total_eur = float((cash_usdt + portfolio_value) * eur_rate)
+        models.insert_snapshot(
+            total_value_eur=total_eur,
+            portfolio_value_usdt=float(portfolio_value),
+            cash_usdt=float(cash_usdt),
+        )
+
+        logger.info(f"=== Sync initial: {executed} achat(s), {len(skips)} skip(s) ===")
+        return {"synced": True, "executed": executed, "skips": skips}
+
     def _execute_action(self, action, signal_id, prices, total_value_usdt, positions):
         """Exécute une action individuelle du signal.
 

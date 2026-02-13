@@ -72,11 +72,19 @@ Calv-a-lot/
 
 ## Polling Cycle (every 2 min)
 1. Fetch signal from Cash-a-lot (`/api/signal/latest`) with HMAC auth
-2. Check if signal is new (deduplication by signal_id)
-3. If new: execute trades proportionally to local capital
-4. Record signal + trades in SQLite
-5. Save portfolio snapshot for chart
-6. Check survival (< 5€ → DEAD)
+2. **Sync initial** : si aucune position locale, calque le `portfolio_state` du leader (achats proportionnels)
+3. Check if signal is new (deduplication by signal_id)
+4. If new: execute trades proportionally to local capital
+5. Record signal + trades in SQLite
+6. Save portfolio snapshot for chart
+7. Check survival (< 5€ → DEAD)
+
+## Initial Sync (démarrage)
+- Au premier poll, si le follower est vierge (table positions vide), il utilise le `portfolio_state` du dernier signal
+- Achète chaque coin proportionnellement au capital local (ex: leader 15% BTC → follower achète 15% de son capital en BTC)
+- Trades enregistrés avec `signal_id = "initial_sync"` pour traçabilité
+- Ne se déclenche qu'une fois (`_initial_sync_done` flag en mémoire)
+- Si Cash-a-lot n'a pas encore de signal (204), réessaye au prochain poll
 
 ## Modes
 - **dry_run**: Simulated trades (même slippage que Cash-a-lot)

@@ -23,6 +23,7 @@ _paused = False
 _last_poll_result = None
 _last_poll_time = None
 _follower = None  # Référence au Follower, injectée par __init__.py
+_initial_sync_done = False
 
 
 def init_poller(follower_service):
@@ -81,6 +82,20 @@ def _do_poll(follower_service):
         if not signal_id:
             _last_poll_result = {"status": "invalid_signal"}
             return
+
+        # Sync initial si le follower est vierge (aucune position)
+        portfolio_state = signal.get("portfolio_state")
+        if portfolio_state and _needs_initial_sync():
+            logger.info("État vierge détecté — sync initial sur le leader")
+            result = follower_service.sync_to_leader(portfolio_state)
+            if result.get("synced"):
+                _set_initial_sync_done()
+                _last_poll_result = {
+                    "status": "initial_sync",
+                    "executed": result.get("executed", 0),
+                }
+            else:
+                logger.warning(f"Sync initial échoué: {result.get('reason')}")
 
         # Vérifier si ce signal a déjà été traité (déduplication)
         if models.signal_exists(signal_id):
@@ -153,6 +168,24 @@ def _fetch_signal():
     except Exception as e:
         logger.error(f"Erreur fetch signal: {e}")
         return None
+
+
+def _needs_initial_sync():
+    """Vérifie si le follower est vierge et n'a pas encore été syncé."""
+    if _initial_sync_done:
+        return False
+    positions = models.get_positions()
+    if len(positions) == 0:
+        return True
+    # Des positions existent déjà — pas besoin de sync
+    _set_initial_sync_done()
+    return False
+
+
+def _set_initial_sync_done():
+    """Marque le sync initial comme fait (ne se redéclenchera plus)."""
+    global _initial_sync_done
+    _initial_sync_done = True
 
 
 def get_status():
