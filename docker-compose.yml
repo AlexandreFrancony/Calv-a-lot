@@ -16,6 +16,7 @@ services:
     cap_drop:
       - ALL
     environment:
+      TZ: Europe/Paris
       LEADER_URL: ${LEADER_URL:?LEADER_URL is required}
       SIGNAL_SECRET: ${SIGNAL_SECRET:?SIGNAL_SECRET is required}
       BINANCE_API_KEY: ${BINANCE_API_KEY:?Binance API key required}
