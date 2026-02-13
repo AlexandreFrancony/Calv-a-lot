@@ -1,5 +1,7 @@
 .env
 data/calvalot.db
+data/calvalot.db-shm
+data/calvalot.db-wal
 __pycache__/
 *.pyc
 .DS_Store
