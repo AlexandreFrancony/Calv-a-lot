@@ -105,8 +105,13 @@ Calv-a-lot/
 - `.env` changes require `docker compose down && docker compose up -d`
 - French comments preferred
 - SQLite DB stored in `./data/calvalot.db` (Docker volume)
+- `.gitignore` includes `data/calvalot.db-shm` and `data/calvalot.db-wal` (SQLite WAL temp files)
 - USDC must be in **Spot wallet** on Binance
 - Dockerfile utilise UID 1000 (`useradd -u 1000`) pour matcher l'utilisateur host (évite les erreurs de permissions SQLite)
 - `start.sh` : lance docker compose + affiche l'URL dashboard avec l'IP locale du Pi
 - Mode dry_run indépendant de Cash-a-lot (peut simuler pendant que le leader est en live)
 - Pas de webhook auto-deploy (déployé localement chez les amis, pas sur le Pi central)
+- Docker container timezone: `TZ=Europe/Paris` (logs en heure locale)
+- Sur le Rasp d'Alex, le port host est overridé à `8081:8080` (localement) car `8080` est pris par Cash-a-lot
+- Déployé sur Rasp dans `~/Hosting/Calv-a-lot/` (pas `~/Calv-a-lot`)
+- Docker service name: `follower` (container name: `calvalot`)
