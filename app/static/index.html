@@ -6,21 +6,113 @@
     <title>Calv-a-lot | Follower Dashboard</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐋</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    // Theme: auto-detect system preference, allow manual override
+    (function() {
+        var saved = localStorage.getItem('theme');
+        if (saved) {
+            document.documentElement.setAttribute('data-theme', saved);
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+            if (!localStorage.getItem('theme')) {
+                document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+                if (typeof updateChart === 'function') updateChart();
+            }
+        });
+    })();
+    function toggleTheme() {
+        var current = document.documentElement.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        document.getElementById('theme-icon-sun').classList.toggle('hidden', next !== 'dark');
+        document.getElementById('theme-icon-moon').classList.toggle('hidden', next === 'dark');
+        if (typeof updateChart === 'function') updateChart();
+    }
+    </script>
     <style>
-        .status-active { color: #22c55e; }
-        .status-paused { color: #f59e0b; }
-        .status-dead { color: #ef4444; }
-        .positive { color: #22c55e; }
-        .negative { color: #ef4444; }
+        /* === Terracota Cream Theme === */
+        :root {
+            --bg-primary: #F5EFE0;
+            --bg-card: #EFE6D6;
+            --bg-header: #E8DECA;
+            --bg-input: #E8DECA;
+            --border: #D3C5AE;
+            --text-primary: #3E2E22;
+            --text-secondary: #5A4634;
+            --text-muted: #8A7A6A;
+            --accent: #C65F3C;
+            --accent-hover: #B34924;
+            --accent-light: #D87D5C;
+            --positive: #16a34a;
+            --negative: #dc2626;
+            --warning: #d97706;
+            --info: #5B7C99;
+            --chart-grid: #D3C5AE;
+            --chart-label: #8A7A6A;
+            --chart-line: #C65F3C;
+            --chart-fill-start: rgba(198, 95, 60, 0.15);
+            --chart-fill-end: rgba(198, 95, 60, 0);
+        }
+        [data-theme="dark"] {
+            --bg-primary: #2A2018;
+            --bg-card: #382A20;
+            --bg-header: #231B14;
+            --bg-input: #3E2E22;
+            --border: #5A4634;
+            --text-primary: #F5EFE0;
+            --text-secondary: #E6D7C3;
+            --text-muted: #8A7A6A;
+            --accent: #C65F3C;
+            --accent-hover: #D87D5C;
+            --accent-light: #E8A887;
+            --positive: #22c55e;
+            --negative: #ef4444;
+            --warning: #f59e0b;
+            --info: #7E9CB9;
+            --chart-grid: #5A4634;
+            --chart-label: #8A7A6A;
+            --chart-line: #C65F3C;
+            --chart-fill-start: rgba(198, 95, 60, 0.18);
+            --chart-fill-end: rgba(198, 95, 60, 0);
+        }
+
+        body { background: var(--bg-primary); color: var(--text-primary); transition: background 0.3s, color 0.3s; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); }
+        .card-inner { background: var(--bg-input); }
+        .text-secondary { color: var(--text-secondary) !important; }
+        .text-muted { color: var(--text-muted) !important; }
+        .border-theme { border-color: var(--border) !important; }
+        .bg-input { background: var(--bg-input); border-color: var(--border); color: var(--text-primary); }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-secondary { background: var(--bg-input); color: var(--text-secondary); }
+        .btn-secondary:hover { background: var(--border); }
+
+        .status-active { color: var(--positive); }
+        .status-paused { color: var(--warning); }
+        .status-dead { color: var(--negative); }
+        .positive { color: var(--positive); }
+        .negative { color: var(--negative); }
         .period-btn { transition: all 0.15s; }
-        .period-btn.active { background: #3b82f6; color: white; }
-        .signal-executed { color: #22c55e; }
-        .signal-skipped { color: #f59e0b; }
-        .signal-error { color: #ef4444; }
-        .signal-received { color: #60a5fa; }
+        .period-btn.active { background: var(--accent) !important; color: white !important; }
+        .signal-executed { color: var(--positive); }
+        .signal-skipped { color: var(--warning); }
+        .signal-error { color: var(--negative); }
+        .signal-received { color: var(--info); }
+
+        .theme-toggle { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 8px; padding: 6px 8px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; }
+        .theme-toggle:hover { background: var(--border); color: var(--text-primary); }
+        .theme-toggle svg { width: 18px; height: 18px; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-card); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen">
+<body class="min-h-screen">
     <div class="container mx-auto px-4 py-6 max-w-6xl">
 
         <!-- Header -->
@@ -30,51 +122,55 @@
                 <span id="mode-badge" class="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">--</span>
             </div>
             <div class="flex items-center gap-3">
-                <span id="status-badge" class="px-3 py-1 rounded-full text-sm font-semibold bg-gray-800">--</span>
-                <button id="toggle-btn" onclick="toggleAgent()" class="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-sm">
+                <span id="status-badge" class="px-3 py-1 rounded-full text-sm font-semibold card">--</span>
+                <button id="toggle-btn" onclick="toggleAgent()" class="px-4 py-2 rounded btn-secondary text-sm">
                     Pause/Resume
+                </button>
+                <button onclick="toggleTheme()" class="theme-toggle" title="Changer le theme">
+                    <svg id="theme-icon-sun" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path stroke-linecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <svg id="theme-icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
                 </button>
             </div>
         </div>
 
         <!-- Budget + Leader Status Row -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="bg-gray-800 rounded-lg p-4">
-                <p class="text-gray-400 text-xs uppercase tracking-wide">Total Value</p>
+            <div class="card rounded-lg p-4">
+                <p class="text-muted text-xs uppercase tracking-wide">Total Value</p>
                 <p id="total-value" class="text-2xl font-bold mt-1">--</p>
                 <p id="pnl" class="text-sm mt-1">--</p>
-                <p id="cash-usdt" class="text-xs text-gray-400 mt-1"></p>
-                <p id="deposited-total" class="text-xs text-gray-500 mt-1"></p>
-                <p id="withdrawn-total" class="text-xs text-gray-500 mt-1"></p>
+                <p id="cash-usdt" class="text-xs text-muted mt-1"></p>
+                <p id="deposited-total" class="text-xs text-muted mt-1"></p>
+                <p id="withdrawn-total" class="text-xs text-muted mt-1"></p>
                 <div class="mt-2 flex gap-1">
                     <input id="deposit-input" type="number" step="0.01" min="0" placeholder="EUR"
-                           class="w-20 px-2 py-1 text-xs bg-gray-700 border border-gray-600 rounded text-white">
-                    <button onclick="doDeposit()" class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-500 rounded">Deposit</button>
+                           class="w-20 px-2 py-1 text-xs bg-input rounded">
+                    <button onclick="doDeposit()" class="px-2 py-1 text-xs btn-primary rounded">Deposit</button>
                 </div>
                 <p id="deposit-status" class="text-xs mt-1 hidden"></p>
             </div>
-            <div class="bg-gray-800 rounded-lg p-4">
-                <p class="text-gray-400 text-xs uppercase tracking-wide">Leader Status</p>
-                <p id="leader-url" class="text-sm mt-1 text-blue-400 truncate">--</p>
-                <p id="last-poll" class="text-sm mt-1 text-gray-400">Last poll: --</p>
-                <p id="poll-interval" class="text-sm mt-1 text-gray-400">Interval: --</p>
-                <p id="poll-status" class="text-xs mt-2 text-gray-500">--</p>
+            <div class="card rounded-lg p-4">
+                <p class="text-muted text-xs uppercase tracking-wide">Leader Status</p>
+                <p id="leader-url" class="text-sm mt-1 truncate" style="color:var(--info)">--</p>
+                <p id="last-poll" class="text-sm mt-1 text-secondary">Last poll: --</p>
+                <p id="poll-interval" class="text-sm mt-1 text-secondary">Interval: --</p>
+                <p id="poll-status" class="text-xs mt-2 text-muted">--</p>
             </div>
-            <div class="bg-gray-800 rounded-lg p-4">
-                <p class="text-gray-400 text-xs uppercase tracking-wide">Signals Stats</p>
+            <div class="card rounded-lg p-4">
+                <p class="text-muted text-xs uppercase tracking-wide">Signals Stats</p>
                 <p id="signals-total" class="text-2xl font-bold mt-1">--</p>
-                <p id="signals-executed" class="text-xs text-gray-400 mt-1">--</p>
-                <p id="last-signal-time" class="text-xs text-gray-500 mt-1">--</p>
+                <p id="signals-executed" class="text-xs text-muted mt-1">--</p>
+                <p id="last-signal-time" class="text-xs text-muted mt-1">--</p>
             </div>
         </div>
 
         <!-- Positions -->
-        <div class="bg-gray-800 rounded-lg p-4 mb-6">
+        <div class="card rounded-lg p-4 mb-6">
             <h2 class="text-lg font-semibold mb-3">Positions</h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="text-gray-400 text-left">
+                        <tr class="text-secondary text-left">
                             <th class="pb-2">Coin</th>
                             <th class="pb-2">Quantity</th>
                             <th class="pb-2">Avg Entry</th>
@@ -84,19 +180,19 @@
                         </tr>
                     </thead>
                     <tbody id="positions-table">
-                        <tr><td colspan="6" class="py-2 text-gray-500">Loading...</td></tr>
+                        <tr><td colspan="6" class="py-2 text-muted">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- Signaux reçus -->
-        <div class="bg-gray-800 rounded-lg p-4 mb-6">
+        <!-- Signaux recus -->
+        <div class="card rounded-lg p-4 mb-6">
             <h2 class="text-lg font-semibold mb-3">Recent Signals</h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="text-gray-400 text-left">
+                        <tr class="text-secondary text-left">
                             <th class="pb-2">Time</th>
                             <th class="pb-2">Confidence</th>
                             <th class="pb-2">Actions</th>
@@ -105,19 +201,19 @@
                         </tr>
                     </thead>
                     <tbody id="signals-table">
-                        <tr><td colspan="5" class="py-2 text-gray-500">No signals yet</td></tr>
+                        <tr><td colspan="5" class="py-2 text-muted">No signals yet</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <!-- Recent Trades -->
-        <div class="bg-gray-800 rounded-lg p-4 mb-6">
+        <div class="card rounded-lg p-4 mb-6">
             <h2 class="text-lg font-semibold mb-3">Recent Trades</h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="text-gray-400 text-left">
+                        <tr class="text-secondary text-left">
                             <th class="pb-2">Time</th>
                             <th class="pb-2">Coin</th>
                             <th class="pb-2">Action</th>
@@ -126,19 +222,19 @@
                         </tr>
                     </thead>
                     <tbody id="trades-table">
-                        <tr><td colspan="5" class="py-2 text-gray-500">Loading...</td></tr>
+                        <tr><td colspan="5" class="py-2 text-muted">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <!-- Withdrawals -->
-        <div class="bg-gray-800 rounded-lg p-4 mb-6">
+        <div class="card rounded-lg p-4 mb-6">
             <h2 class="text-lg font-semibold mb-3">Withdrawals</h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="text-gray-400 text-left">
+                        <tr class="text-secondary text-left">
                             <th class="pb-2">Time</th>
                             <th class="pb-2">Requested</th>
                             <th class="pb-2">Received</th>
@@ -147,21 +243,21 @@
                         </tr>
                     </thead>
                     <tbody id="withdrawals-table">
-                        <tr><td colspan="5" class="py-2 text-gray-500">No withdrawals yet</td></tr>
+                        <tr><td colspan="5" class="py-2 text-muted">No withdrawals yet</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <!-- Value Chart -->
-        <div class="bg-gray-800 rounded-lg p-4 mb-6">
+        <div class="card rounded-lg p-4 mb-6">
             <div class="flex items-center justify-between mb-3">
                 <h2 class="text-lg font-semibold">Portfolio Value Over Time</h2>
                 <div class="flex gap-1">
-                    <button class="period-btn px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600" data-period="1d">1J</button>
-                    <button class="period-btn px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 active" data-period="1w">1S</button>
-                    <button class="period-btn px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600" data-period="1m">1M</button>
-                    <button class="period-btn px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600" data-period="1y">1A</button>
+                    <button class="period-btn px-3 py-1 rounded text-xs btn-secondary" data-period="1d">1J</button>
+                    <button class="period-btn px-3 py-1 rounded text-xs btn-secondary active" data-period="1w">1S</button>
+                    <button class="period-btn px-3 py-1 rounded text-xs btn-secondary" data-period="1m">1M</button>
+                    <button class="period-btn px-3 py-1 rounded text-xs btn-secondary" data-period="1y">1A</button>
                 </div>
             </div>
             <div id="chart-container" style="width:100%; position:relative;">
@@ -169,14 +265,22 @@
             </div>
         </div>
 
-        <p class="text-center text-gray-600 text-xs">Calv-a-lot v1.0 | Follower | Auto-refresh 30s</p>
+        <p class="text-center text-muted text-xs">Calv-a-lot v1.0 | Follower | Auto-refresh 30s</p>
     </div>
 
     <script>
+    // Init theme icon visibility
+    (function() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var sun = document.getElementById('theme-icon-sun');
+        var moon = document.getElementById('theme-icon-moon');
+        if (sun) sun.classList.toggle('hidden', !isDark);
+        if (moon) moon.classList.toggle('hidden', isDark);
+    })();
+
     let currentPrices = {};
     let currentPeriod = '1w';
 
-    // Icônes crypto via CoinCap CDN
     function coinIcon(symbol) {
         var s = symbol.replace('USDC','').replace('USDT','').toLowerCase();
         return '<img src="https://assets.coincap.io/assets/icons/' + s + '@2x.png" alt="' + s + '" class="w-5 h-5 inline-block rounded-full mr-1.5 align-middle" onerror="this.style.display=\'none\'">';
@@ -199,11 +303,10 @@
 
         var badge = document.getElementById('status-badge');
         badge.textContent = b.status || '--';
-        badge.className = 'px-3 py-1 rounded-full text-sm font-semibold bg-gray-800 status-' + (b.status || '').toLowerCase();
+        badge.className = 'px-3 py-1 rounded-full text-sm font-semibold card status-' + (b.status || '').toLowerCase();
 
         if (b.status === 'UNINITIALIZED') return;
 
-        // Total Value
         if (b.total_value_eur !== undefined) {
             var valEur = b.total_value_eur.toFixed(2) + '\u20AC';
             var valUsd = b.total_value_usdt !== undefined ? ' / $' + b.total_value_usdt.toFixed(2) : '';
@@ -229,7 +332,6 @@
         var a = await fetchJSON('/api/agent/status');
         if (!a) return;
 
-        // Mode badge
         var modeBadge = document.getElementById('mode-badge');
         if (a.leader_url && a.leader_url.includes('francony')) {
             modeBadge.textContent = a.paused ? 'PAUSED' : 'FOLLOWING';
@@ -237,7 +339,6 @@
                 (a.paused ? 'bg-yellow-600 text-white' : 'bg-emerald-600 text-white');
         }
 
-        // Leader info
         document.getElementById('leader-url').textContent = a.leader_url || '--';
         document.getElementById('poll-interval').textContent = 'Interval: ' + (a.poll_interval_seconds || '--') + 's';
 
@@ -261,7 +362,7 @@
         var active = positions.filter(function(p) { return p.quantity > 0; });
 
         if (active.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="py-2 text-gray-500">No open positions</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="py-2 text-muted">No open positions</td></tr>';
             return;
         }
 
@@ -270,7 +371,7 @@
             var value = p.quantity * price;
             var pnl = value - p.total_invested_usdt;
             var pnlPct = p.total_invested_usdt > 0 ? (pnl / p.total_invested_usdt * 100) : 0;
-            return '<tr class="border-t border-gray-700">' +
+            return '<tr class="border-t border-theme">' +
                 '<td class="py-2 font-semibold">' + coinIcon(p.coin) + p.coin.replace('USDC','') + '</td>' +
                 '<td class="py-2">' + p.quantity.toFixed(6) + '</td>' +
                 '<td class="py-2">$' + p.avg_entry_price.toFixed(2) + '</td>' +
@@ -285,7 +386,6 @@
         var signals = await fetchJSON('/api/signals?limit=10');
         if (!signals) return;
 
-        // Stats
         document.getElementById('signals-total').textContent = signals.length + ' signal(s)';
         var executed = signals.filter(function(s) { return s.status === 'executed'; }).length;
         document.getElementById('signals-executed').textContent = executed + ' executed, ' + (signals.length - executed) + ' other';
@@ -296,7 +396,7 @@
 
         var tbody = document.getElementById('signals-table');
         if (signals.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="py-2 text-gray-500">No signals yet</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="py-2 text-muted">No signals yet</td></tr>';
             return;
         }
 
@@ -306,17 +406,17 @@
             var actions = (s.actions || []).filter(function(a) { return a.action !== 'HOLD'; });
             var actionStr = actions.length > 0
                 ? actions.map(function(a) {
-                    var cls = a.action === 'BUY' ? 'text-green-400' : 'text-red-400';
+                    var cls = a.action === 'BUY' ? 'positive' : 'negative';
                     return '<span class="' + cls + '">' + a.action + ' ' + a.coin.replace('USDC','') + '</span>';
                 }).join(', ')
-                : '<span class="text-gray-500">HOLD</span>';
+                : '<span class="text-muted">HOLD</span>';
             var reasoning = (s.reasoning || '').substring(0, 60);
-            return '<tr class="border-t border-gray-700">' +
+            return '<tr class="border-t border-theme">' +
                 '<td class="py-2 text-xs">' + time + '</td>' +
                 '<td class="py-2">' + conf + '</td>' +
                 '<td class="py-2 text-xs">' + actionStr + '</td>' +
                 '<td class="py-2 text-xs signal-' + s.status + '">' + s.status + '</td>' +
-                '<td class="py-2 text-xs text-gray-400">' + reasoning + '</td>' +
+                '<td class="py-2 text-xs text-secondary">' + reasoning + '</td>' +
                 '</tr>';
         }).join('');
     }
@@ -325,23 +425,19 @@
         var trades = await fetchJSON('/api/trades?limit=10');
         if (!trades) return;
 
-        // Extraire les prix des positions pour les calculs
         var positions = await fetchJSON('/api/positions');
-        if (positions) {
-            // Pas de market endpoint ici, on utilise les prix depuis les derniers trades
-        }
 
         var tbody = document.getElementById('trades-table');
         if (trades.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="py-2 text-gray-500">No trades yet</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="py-2 text-muted">No trades yet</td></tr>';
             return;
         }
 
         tbody.innerHTML = trades.map(function(t) {
             var time = t.created_at ? new Date(t.created_at).toLocaleString() : '--';
-            var actionClass = t.action === 'BUY' ? 'text-green-400' : 'text-red-400';
-            var simBadge = t.is_simulated ? ' <span class="text-xs text-gray-500">[SIM]</span>' : '';
-            return '<tr class="border-t border-gray-700">' +
+            var actionClass = t.action === 'BUY' ? 'positive' : 'negative';
+            var simBadge = t.is_simulated ? ' <span class="text-xs text-muted">[SIM]</span>' : '';
+            return '<tr class="border-t border-theme">' +
                 '<td class="py-2 text-xs">' + time + '</td>' +
                 '<td class="py-2 font-semibold">' + coinIcon(t.coin) + t.coin.replace('USDC','') + '</td>' +
                 '<td class="py-2 ' + actionClass + '">' + t.action + simBadge + '</td>' +
@@ -364,16 +460,16 @@
 
         var tbody = document.getElementById('withdrawals-table');
         if (!data.withdrawals || data.withdrawals.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="py-2 text-gray-500">No withdrawals yet</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="py-2 text-muted">No withdrawals yet</td></tr>';
             return;
         }
         tbody.innerHTML = data.withdrawals.map(function(w) {
             var time = w.created_at ? new Date(w.created_at).toLocaleString() : '--';
-            return '<tr class="border-t border-gray-700">' +
+            return '<tr class="border-t border-theme">' +
                 '<td class="py-2 text-xs">' + time + '</td>' +
                 '<td class="py-2">' + (w.amount_eur_requested || 0).toFixed(2) + '\u20AC</td>' +
-                '<td class="py-2 text-emerald-400">' + (w.amount_eur_received || 0).toFixed(2) + '\u20AC</td>' +
-                '<td class="py-2 text-gray-300">$' + (w.amount_usdt_sold || 0).toFixed(2) + '</td>' +
+                '<td class="py-2" style="color:var(--positive)">' + (w.amount_eur_received || 0).toFixed(2) + '\u20AC</td>' +
+                '<td class="py-2 text-secondary">$' + (w.amount_usdt_sold || 0).toFixed(2) + '</td>' +
                 '<td class="py-2 text-xs">' + (w.status || 'completed') + '</td>' +
                 '</tr>';
         }).join('');
@@ -416,10 +512,18 @@
         var chartW = w - pad.left - pad.right;
         var chartH = h - pad.top - pad.bottom;
 
+        // Read CSS vars for chart colors
+        var cs = getComputedStyle(document.documentElement);
+        var gridColor = cs.getPropertyValue('--chart-grid').trim();
+        var labelColor = cs.getPropertyValue('--chart-label').trim();
+        var lineColor = cs.getPropertyValue('--chart-line').trim();
+        var fillStart = cs.getPropertyValue('--chart-fill-start').trim();
+        var fillEnd = cs.getPropertyValue('--chart-fill-end').trim();
+
         ctx.clearRect(0, 0, w, h);
 
         // Grille
-        ctx.strokeStyle = '#374151';
+        ctx.strokeStyle = gridColor;
         ctx.lineWidth = 0.5;
         var gridLines = isMobile ? 3 : 5;
         for (var i = 0; i <= gridLines; i++) {
@@ -429,7 +533,7 @@
             ctx.lineTo(w - pad.right, y);
             ctx.stroke();
             var val = min + (max - min) * (i / gridLines);
-            ctx.fillStyle = '#9ca3af';
+            ctx.fillStyle = labelColor;
             ctx.font = (isMobile ? '10' : '11') + 'px monospace';
             ctx.textAlign = 'right';
             ctx.fillText(val.toFixed(1) + '\u20AC', pad.left - 5, y + 4);
@@ -437,7 +541,7 @@
 
         // Ligne
         ctx.beginPath();
-        ctx.strokeStyle = '#22c55e';
+        ctx.strokeStyle = lineColor;
         ctx.lineWidth = 2;
         for (var j = 0; j < data.length; j++) {
             var x = pad.left + (j / (data.length - 1)) * chartW;
@@ -452,13 +556,13 @@
         ctx.lineTo(pad.left, pad.top + chartH);
         ctx.closePath();
         var grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
-        grad.addColorStop(0, 'rgba(34, 197, 94, 0.15)');
-        grad.addColorStop(1, 'rgba(34, 197, 94, 0)');
+        grad.addColorStop(0, fillStart);
+        grad.addColorStop(1, fillEnd);
         ctx.fillStyle = grad;
         ctx.fill();
 
         // Labels X
-        ctx.fillStyle = '#9ca3af';
+        ctx.fillStyle = labelColor;
         ctx.font = (isMobile ? '9' : '10') + 'px monospace';
         ctx.textAlign = 'center';
         var labelCount = isMobile ? 4 : 6;
@@ -470,7 +574,7 @@
         }
     }
 
-    // Sélecteur de période
+    // Selecteur de periode
     document.querySelectorAll('.period-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
@@ -499,7 +603,8 @@
         if (!confirm('Ajouter ' + amount.toFixed(2) + ' EUR comme d\u00e9p\u00f4t ?')) return;
 
         statusEl.textContent = 'Enregistrement...';
-        statusEl.className = 'text-xs mt-1 text-yellow-400';
+        statusEl.className = 'text-xs mt-1';
+        statusEl.style.color = 'var(--warning)';
 
         try {
             var res = await fetch('/api/budget/deposit', {
@@ -511,15 +616,15 @@
             if (res.ok) {
                 input.value = '';
                 statusEl.textContent = 'D\u00e9p\u00f4t enregistr\u00e9 : total ' + data.total_deposited_eur.toFixed(2) + '\u20AC';
-                statusEl.className = 'text-xs mt-1 text-blue-400';
+                statusEl.style.color = 'var(--info)';
                 refreshAll();
             } else {
                 statusEl.textContent = data.error || 'Erreur';
-                statusEl.className = 'text-xs mt-1 text-red-400';
+                statusEl.style.color = 'var(--negative)';
             }
         } catch (e) {
             statusEl.textContent = 'Erreur r\u00e9seau';
-            statusEl.className = 'text-xs mt-1 text-red-400';
+            statusEl.style.color = 'var(--negative)';
         }
         setTimeout(function() { statusEl.className = 'text-xs mt-1 hidden'; }, 10000);
     }
