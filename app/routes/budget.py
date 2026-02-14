@@ -1,6 +1,11 @@
+import logging
+
 from flask import Blueprint, jsonify, request
 
 from app import models
+from app.auth import auth
+
+logger = logging.getLogger("calvalot.routes.budget")
 
 budget_bp = Blueprint("budget", __name__)
 
@@ -33,8 +38,8 @@ def get_budget():
             status["total_value_usdt"] = total_usdt
             status["total_value_eur"] = total_usdt * eur_rate
             status["eurusdc_rate"] = eur_rate
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Erreur calcul valeur portefeuille: {e}")
 
     return jsonify(status)
 
@@ -51,6 +56,7 @@ def get_budget_history():
 
 
 @budget_bp.route("/api/budget/deposit", methods=["POST"])
+@auth.login_required
 def add_deposit():
     """Enregistrer un dépôt manuel."""
     data = request.get_json()
@@ -77,6 +83,7 @@ def add_deposit():
 
 
 @budget_bp.route("/api/budget/deposit", methods=["PUT"])
+@auth.login_required
 def set_deposit():
     """Corriger manuellement le total déposé."""
     data = request.get_json()
@@ -87,6 +94,9 @@ def set_deposit():
         total_eur = float(data["total_eur"])
     except (ValueError, TypeError):
         return jsonify({"error": "invalid amount"}), 400
+
+    if total_eur < 0 or total_eur > 1_000_000:
+        return jsonify({"error": "amount out of range (0 - 1 000 000)"}), 400
 
     budget = models.get_budget()
     if not budget:

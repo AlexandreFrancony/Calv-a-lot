@@ -268,6 +268,18 @@
         <p class="text-center text-muted text-xs">Calv-a-lot v1.0 | Follower | Auto-refresh 30s</p>
     </div>
 
+    <!-- Login Modal -->
+    <div id="loginOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); align-items:center; justify-content:center;">
+        <div class="card p-8" style="min-width:320px; max-width:400px;">
+            <h2 class="text-xl font-bold mb-4" style="color:var(--text-primary)">🔐 Calv-a-lot</h2>
+            <p class="text-sm mb-4" style="color:var(--text-secondary)">Authentification requise</p>
+            <input id="loginUser" type="text" placeholder="Utilisateur" class="w-full p-2 rounded mb-3" style="background:var(--bg-primary);border:1px solid var(--border);color:var(--text-primary);">
+            <input id="loginPass" type="password" placeholder="Mot de passe" class="w-full p-2 rounded mb-4" style="background:var(--bg-primary);border:1px solid var(--border);color:var(--text-primary);" onkeypress="if(event.key==='Enter')doLogin()">
+            <button onclick="doLogin()" class="btn-primary w-full py-2 rounded font-semibold">Connexion</button>
+            <p id="loginError" class="text-sm mt-2" style="color:var(--negative);display:none;">Identifiants incorrects</p>
+        </div>
+    </div>
+
     <script>
     // Init theme icon visibility
     (function() {
@@ -278,11 +290,54 @@
         if (moon) moon.classList.toggle('hidden', isDark);
     })();
 
+    // ── XSS Protection ───────────────────────────────
+    function esc(s) {
+        if (s == null) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Auth ──────────────────────────────────────────
+    let _authHeader = null;
+
+    function getAuthHeaders() {
+        if (!_authHeader) return {};
+        return { 'Authorization': _authHeader };
+    }
+
+    function authFetch(url, options = {}) {
+        const headers = { ...getAuthHeaders(), ...(options.headers || {}) };
+        return fetch(url, { ...options, headers }).then(resp => {
+            if (resp.status === 401) {
+                _authHeader = null;
+                showLogin();
+                throw new Error('Unauthorized');
+            }
+            return resp;
+        });
+    }
+
+    function doLogin() {
+        const user = document.getElementById('loginUser').value;
+        const pass = document.getElementById('loginPass').value;
+        _authHeader = 'Basic ' + btoa(user + ':' + pass);
+        hideLogin();
+        // No need to test - next action will validate
+    }
+
+    function showLogin() {
+        document.getElementById('loginOverlay').style.display = 'flex';
+    }
+
+    function hideLogin() {
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('loginError').style.display = 'none';
+    }
+
     let currentPrices = {};
     let currentPeriod = '1w';
 
     function coinIcon(symbol) {
-        var s = symbol.replace('USDC','').replace('USDT','').toLowerCase();
+        var s = esc(symbol.replace('USDC','').replace('USDT','').toLowerCase());
         return '<img src="https://assets.coincap.io/assets/icons/' + s + '@2x.png" alt="' + s + '" class="w-5 h-5 inline-block rounded-full mr-1.5 align-middle" onerror="this.style.display=\'none\'">';
     }
 
@@ -372,7 +427,7 @@
             var pnl = value - p.total_invested_usdt;
             var pnlPct = p.total_invested_usdt > 0 ? (pnl / p.total_invested_usdt * 100) : 0;
             return '<tr class="border-t border-theme">' +
-                '<td class="py-2 font-semibold">' + coinIcon(p.coin) + p.coin.replace('USDC','') + '</td>' +
+                '<td class="py-2 font-semibold">' + coinIcon(p.coin) + esc(p.coin.replace('USDC','')) + '</td>' +
                 '<td class="py-2">' + p.quantity.toFixed(6) + '</td>' +
                 '<td class="py-2">$' + p.avg_entry_price.toFixed(2) + '</td>' +
                 '<td class="py-2">$' + p.total_invested_usdt.toFixed(2) + '</td>' +
@@ -407,15 +462,15 @@
             var actionStr = actions.length > 0
                 ? actions.map(function(a) {
                     var cls = a.action === 'BUY' ? 'positive' : 'negative';
-                    return '<span class="' + cls + '">' + a.action + ' ' + a.coin.replace('USDC','') + '</span>';
+                    return '<span class="' + cls + '">' + esc(a.action) + ' ' + esc(a.coin.replace('USDC','')) + '</span>';
                 }).join(', ')
                 : '<span class="text-muted">HOLD</span>';
-            var reasoning = (s.reasoning || '').substring(0, 60);
+            var reasoning = esc((s.reasoning || '').substring(0, 60));
             return '<tr class="border-t border-theme">' +
                 '<td class="py-2 text-xs">' + time + '</td>' +
                 '<td class="py-2">' + conf + '</td>' +
                 '<td class="py-2 text-xs">' + actionStr + '</td>' +
-                '<td class="py-2 text-xs signal-' + s.status + '">' + s.status + '</td>' +
+                '<td class="py-2 text-xs signal-' + esc(s.status) + '">' + esc(s.status) + '</td>' +
                 '<td class="py-2 text-xs text-secondary">' + reasoning + '</td>' +
                 '</tr>';
         }).join('');
@@ -439,8 +494,8 @@
             var simBadge = t.is_simulated ? ' <span class="text-xs text-muted">[SIM]</span>' : '';
             return '<tr class="border-t border-theme">' +
                 '<td class="py-2 text-xs">' + time + '</td>' +
-                '<td class="py-2 font-semibold">' + coinIcon(t.coin) + t.coin.replace('USDC','') + '</td>' +
-                '<td class="py-2 ' + actionClass + '">' + t.action + simBadge + '</td>' +
+                '<td class="py-2 font-semibold">' + coinIcon(t.coin) + esc(t.coin.replace('USDC','')) + '</td>' +
+                '<td class="py-2 ' + actionClass + '">' + esc(t.action) + simBadge + '</td>' +
                 '<td class="py-2">$' + Number(t.amount_usdt).toFixed(2) + '</td>' +
                 '<td class="py-2">$' + Number(t.price).toFixed(2) + '</td>' +
                 '</tr>';
@@ -470,7 +525,7 @@
                 '<td class="py-2">' + (w.amount_eur_requested || 0).toFixed(2) + '\u20AC</td>' +
                 '<td class="py-2" style="color:var(--positive)">' + (w.amount_eur_received || 0).toFixed(2) + '\u20AC</td>' +
                 '<td class="py-2 text-secondary">$' + (w.amount_usdt_sold || 0).toFixed(2) + '</td>' +
-                '<td class="py-2 text-xs">' + (w.status || 'completed') + '</td>' +
+                '<td class="py-2 text-xs">' + esc(w.status || 'completed') + '</td>' +
                 '</tr>';
         }).join('');
     }
@@ -591,7 +646,7 @@
     });
 
     async function toggleAgent() {
-        await fetch('/api/agent/toggle', { method: 'POST' });
+        await authFetch('/api/agent/toggle', { method: 'POST' });
         setTimeout(updateAgent, 500);
     }
 
@@ -607,7 +662,7 @@
         statusEl.style.color = 'var(--warning)';
 
         try {
-            var res = await fetch('/api/budget/deposit', {
+            var res = await authFetch('/api/budget/deposit', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({amount_eur: amount})
@@ -619,7 +674,7 @@
                 statusEl.style.color = 'var(--info)';
                 refreshAll();
             } else {
-                statusEl.textContent = data.error || 'Erreur';
+                statusEl.textContent = esc(data.error || 'Erreur');
                 statusEl.style.color = 'var(--negative)';
             }
         } catch (e) {

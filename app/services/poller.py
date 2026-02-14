@@ -139,7 +139,7 @@ def _do_poll(follower_service):
 
     except Exception as e:
         logger.exception(f"Erreur polling: {e}")
-        _last_poll_result = {"status": "error", "error": str(e)}
+        _last_poll_result = {"status": "error", "error": "Erreur de polling"}
 
 
 def _execute_with_timeout(follower_service, signal, timeout=90):
@@ -223,7 +223,7 @@ def get_status():
         "running": _running and not _paused,
         "paused": _paused,
         "poll_interval_seconds": Settings.POLL_INTERVAL_SECONDS,
-        "leader_url": Settings.LEADER_URL,
+        "leader_url": "***" if Settings.LEADER_URL else None,
         "last_poll": _last_poll_result,
         "last_poll_time": _last_poll_time,
     }

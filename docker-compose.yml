@@ -30,6 +30,8 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      API_USER: ${API_USER:-admin}
+      API_PASSWORD_HASH: ${API_PASSWORD_HASH:-}
       PORT: 8080
     ports:
       - "8080:8080"

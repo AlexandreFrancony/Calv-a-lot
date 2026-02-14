@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify
 
+from app.auth import auth
+
 agent_bp = Blueprint("agent", __name__)
 
 
@@ -11,6 +13,7 @@ def agent_status():
 
 
 @agent_bp.route("/api/agent/toggle", methods=["POST"])
+@auth.login_required
 def toggle_agent():
     from app.services import poller
     if poller.is_paused():

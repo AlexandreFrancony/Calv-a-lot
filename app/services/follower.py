@@ -9,6 +9,7 @@ import logging
 from decimal import Decimal
 
 from config.settings import Settings
+from config.coins import COIN_SYMBOLS
 from app import models
 
 logger = logging.getLogger("calvalot.follower")
@@ -23,10 +24,51 @@ class Follower:
 
     def execute_signal(self, signal):
         """Point d'entrée : route vers v1 ou v2 selon la version du signal."""
+        # Valider le signal avant exécution
+        valid, reason = self._validate_signal(signal)
+        if not valid:
+            signal_id = signal.get("signal_id", "unknown")
+            logger.warning(f"Signal {signal_id} rejeté: {reason}")
+            models.update_signal_status(signal_id, "rejected", reason)
+            return {"status": "rejected", "reason": reason, "trades_executed": 0}
+
         version = signal.get("version", 1)
         if version >= 2:
             return self._execute_signal_v2(signal)
         return self._execute_signal_v1(signal)
+
+    def _validate_signal(self, signal):
+        """Valide un signal avant exécution.
+
+        Vérifie que les coins sont connus, les pourcentages valides,
+        et l'allocation totale <= 1.0.
+        """
+        # Valider les actions (v1)
+        for action in signal.get("actions", []):
+            coin = action.get("coin", "")
+            if coin and coin not in COIN_SYMBOLS:
+                return False, f"Coin inconnu: {coin}"
+            pct = action.get("pct_of_capital", 0)
+            if not (0 <= pct <= 1):
+                return False, f"pct_of_capital invalide: {pct}"
+
+        # Valider le portfolio_state (v2)
+        portfolio_state = signal.get("portfolio_state")
+        if portfolio_state:
+            positions = portfolio_state.get("positions", [])
+            total_pct = 0
+            for pos in positions:
+                coin = pos.get("coin", "")
+                if coin and coin not in COIN_SYMBOLS:
+                    return False, f"Coin inconnu dans portfolio_state: {coin}"
+                pct = pos.get("pct_of_portfolio", 0)
+                if not (0 <= pct <= 1):
+                    return False, f"pct_of_portfolio invalide: {pct}"
+                total_pct += pct
+            if total_pct > 1.05:  # 5% de tolérance pour arrondis
+                return False, f"Allocation totale > 100%: {total_pct:.2%}"
+
+        return True, ""
 
     # ================================================================
     # V2 — Rebalancing par allocation cible
