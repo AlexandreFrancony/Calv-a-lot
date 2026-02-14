@@ -6,6 +6,7 @@ agent_bp = Blueprint("agent", __name__)
 
 
 @agent_bp.route("/api/agent/status")
+@auth.login_required
 def agent_status():
     from app.services import poller
     status = poller.get_status()

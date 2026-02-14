@@ -1,11 +1,13 @@
 from flask import Blueprint, jsonify, request
 
 from app import models
+from app.auth import auth
 
 trades_bp = Blueprint("trades", __name__)
 
 
 @trades_bp.route("/api/trades")
+@auth.login_required
 def get_trades():
     limit = request.args.get("limit", 20, type=int)
     trades = models.get_recent_trades(limit=min(limit, 100))
@@ -13,12 +15,14 @@ def get_trades():
 
 
 @trades_bp.route("/api/positions")
+@auth.login_required
 def get_positions():
     positions = models.get_positions()
     return jsonify(positions)
 
 
 @trades_bp.route("/api/prices")
+@auth.login_required
 def get_prices():
     """Prix courants pour le dashboard (positions P&L)."""
     from app.services.poller import _follower

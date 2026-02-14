@@ -113,7 +113,7 @@
     </style>
 </head>
 <body class="min-h-screen">
-    <div class="container mx-auto px-4 py-6 max-w-6xl">
+    <div id="mainContent" class="container mx-auto px-4 py-6 max-w-6xl" style="display:none;">
 
         <!-- Header -->
         <div class="flex items-center justify-between mb-6">
@@ -269,7 +269,7 @@
     </div>
 
     <!-- Login Modal -->
-    <div id="loginOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); align-items:center; justify-content:center;">
+    <div id="loginOverlay" style="display:flex; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); align-items:center; justify-content:center;">
         <div class="card p-8" style="min-width:320px; max-width:400px;">
             <h2 class="text-xl font-bold mb-4" style="color:var(--text-primary)">🔐 Calv-a-lot</h2>
             <p class="text-sm mb-4" style="color:var(--text-secondary)">Authentification requise</p>
@@ -316,16 +316,29 @@
         });
     }
 
-    function doLogin() {
+    async function doLogin() {
         const user = document.getElementById('loginUser').value;
         const pass = document.getElementById('loginPass').value;
         _authHeader = 'Basic ' + btoa(user + ':' + pass);
-        hideLogin();
-        // No need to test - next action will validate
+        try {
+            const resp = await authFetch('/api/agent/status');
+            if (resp.ok) {
+                hideLogin();
+                document.getElementById('mainContent').style.display = '';
+                startDashboard();
+            } else {
+                _authHeader = null;
+                document.getElementById('loginError').style.display = 'block';
+            }
+        } catch (e) {
+            _authHeader = null;
+            document.getElementById('loginError').style.display = 'block';
+        }
     }
 
     function showLogin() {
         document.getElementById('loginOverlay').style.display = 'flex';
+        document.getElementById('mainContent').style.display = 'none';
     }
 
     function hideLogin() {
@@ -343,7 +356,7 @@
 
     async function fetchJSON(url) {
         try {
-            var res = await fetch(url);
+            var res = await authFetch(url);
             if (!res.ok) throw new Error(res.statusText);
             return await res.json();
         } catch (e) {
@@ -696,8 +709,13 @@
         await updateChart();
     }
 
-    refreshAll();
-    setInterval(refreshAll, 30000);
+    let _dashboardInterval = null;
+
+    function startDashboard() {
+        refreshAll();
+        if (_dashboardInterval) clearInterval(_dashboardInterval);
+        _dashboardInterval = setInterval(refreshAll, 30000);
+    }
     </script>
 </body>
 </html>

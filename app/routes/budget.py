@@ -11,6 +11,7 @@ budget_bp = Blueprint("budget", __name__)
 
 
 @budget_bp.route("/api/budget")
+@auth.login_required
 def get_budget():
     from app.services.poller import _follower
     mgr = _follower.budget_mgr if _follower else None
@@ -45,6 +46,7 @@ def get_budget():
 
 
 @budget_bp.route("/api/budget/history")
+@auth.login_required
 def get_budget_history():
     limit = request.args.get("limit", 5000, type=int)
     limit = min(limit, 5000)
@@ -107,6 +109,7 @@ def set_deposit():
 
 
 @budget_bp.route("/api/budget/withdrawals")
+@auth.login_required
 def get_withdrawals():
     """Historique des retraits."""
     limit = request.args.get("limit", 50, type=int)
