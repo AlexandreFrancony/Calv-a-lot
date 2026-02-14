@@ -1,7 +1,8 @@
 """Logique de réplication des signaux Cash-a-lot.
 
-Reçoit un signal du poller et exécute les mêmes trades
-proportionnellement au capital local du follower.
+V2 : rebalancing par allocation cible. Au lieu de répliquer les trades
+individuels, le follower compare son allocation actuelle à l'allocation
+cible du leader et exécute les trades nécessaires pour les aligner.
 """
 
 import logging
@@ -21,18 +22,155 @@ class Follower:
         self.is_simulated = Settings.TRADING_MODE == "dry_run"
 
     def execute_signal(self, signal):
-        """Réplique un signal Cash-a-lot proportionnellement au capital local.
+        """Point d'entrée : route vers v1 ou v2 selon la version du signal."""
+        version = signal.get("version", 1)
+        if version >= 2:
+            return self._execute_signal_v2(signal)
+        return self._execute_signal_v1(signal)
 
-        Args:
-            signal: dict avec actions, confidence, signal_id, portfolio_state
+    # ================================================================
+    # V2 — Rebalancing par allocation cible
+    # ================================================================
 
-        Returns:
-            dict avec status et nombre de trades exécutés
-        """
+    def _execute_signal_v2(self, signal):
+        """Rebalance le portfolio pour coller à l'allocation du leader."""
         signal_id = signal.get("signal_id", "unknown")
-        logger.info(f"=== Exécution signal {signal_id} ===")
+        logger.info(f"=== Rebalancing signal {signal_id} (v2) ===")
 
-        # Vérifier qu'on peut trader
+        can_trade, reason = self.budget_mgr.can_trade()
+        if not can_trade:
+            logger.warning(f"Cannot trade: {reason}")
+            models.update_signal_status(signal_id, "skipped", reason)
+            return {"status": "skipped", "reason": reason, "trades_executed": 0}
+
+        portfolio_state = signal.get("portfolio_state")
+        if not portfolio_state:
+            logger.warning("Signal v2 sans portfolio_state")
+            models.update_signal_status(signal_id, "skipped", "no portfolio_state")
+            return {"status": "skipped", "reason": "no portfolio_state", "trades_executed": 0}
+
+        # État actuel
+        prices = self.market.get_prices()
+        positions = models.get_positions()
+        cash = self._get_cash_balance()
+        portfolio_value = self._calc_portfolio_value(positions, prices)
+        total = cash + portfolio_value
+
+        if total <= 0:
+            logger.warning("Capital total = 0, impossible de rebalancer")
+            models.update_signal_status(signal_id, "skipped", "No capital")
+            return {"status": "skipped", "reason": "No capital", "trades_executed": 0}
+
+        # Allocation actuelle (% par coin)
+        current_alloc = {}
+        for pos in positions:
+            qty = Decimal(str(pos["quantity"]))
+            price = prices.get(pos["coin"])
+            if qty > 0 and price:
+                current_alloc[pos["coin"]] = float(qty * price / total)
+
+        # Allocation cible du leader
+        target_alloc = {
+            p["coin"]: p["pct_of_portfolio"]
+            for p in portfolio_state.get("positions", [])
+        }
+
+        # Calculer les deltas
+        all_coins = set(list(current_alloc.keys()) + list(target_alloc.keys()))
+        sells = []
+        buys = []
+
+        for coin in all_coins:
+            current_pct = current_alloc.get(coin, 0)
+            target_pct = target_alloc.get(coin, 0)
+            delta = target_pct - current_pct
+
+            if abs(delta) < 0.005:  # Ignorer < 0.5%
+                continue
+
+            amount_usdt = abs(delta) * float(total)
+            if amount_usdt < Settings.MIN_ORDER_USDC:
+                continue
+
+            if delta < 0:
+                sells.append({"coin": coin, "amount_usdt": Decimal(str(amount_usdt))})
+            else:
+                buys.append({"coin": coin, "amount_usdt": Decimal(str(amount_usdt))})
+
+        if not sells and not buys:
+            logger.info("Allocations alignées, aucun trade nécessaire")
+            models.update_signal_status(signal_id, "executed")
+            return {"status": "ok", "trades_executed": 0}
+
+        logger.info(f"Rebalancing: {len(sells)} sell(s), {len(buys)} buy(s)")
+
+        # Exécuter les SELL d'abord (libérer du cash)
+        executed = 0
+        skips = []
+        errors = []
+
+        for s in sells:
+            try:
+                result = self._execute_sell(
+                    s["coin"], s["amount_usdt"], signal_id, prices, positions,
+                )
+                if result and not result.get("skipped"):
+                    executed += 1
+                elif result and result.get("skipped"):
+                    skips.append(result["reason"])
+            except Exception as e:
+                logger.error(f"Erreur SELL {s['coin']}: {e}")
+                errors.append(str(e))
+
+        # Rafraîchir les positions après les ventes
+        positions = models.get_positions()
+
+        # Exécuter les BUY (re-check cash avant chaque)
+        for b in buys:
+            try:
+                cash = self._get_cash_balance()
+                amount = min(b["amount_usdt"], cash)
+                if amount < Decimal(str(Settings.MIN_ORDER_USDC)):
+                    reason = f"BUY {b['coin']}: cash insuffisant (${float(cash):.2f})"
+                    logger.info(f"Skip {reason}")
+                    skips.append(reason)
+                    continue
+
+                result = self._execute_buy(
+                    b["coin"], amount, signal_id, prices,
+                    total, positions,
+                )
+                if result and not result.get("skipped"):
+                    executed += 1
+                elif result and result.get("skipped"):
+                    skips.append(result["reason"])
+            except Exception as e:
+                logger.error(f"Erreur BUY {b['coin']}: {e}")
+                errors.append(str(e))
+
+        # Snapshot post-rebalancing
+        self._save_snapshot(prices)
+
+        # Mettre à jour le status du signal
+        if errors:
+            models.update_signal_status(signal_id, "error", "; ".join(errors))
+        elif executed == 0 and skips:
+            models.update_signal_status(signal_id, "skipped", "; ".join(skips))
+        else:
+            models.update_signal_status(signal_id, "executed")
+
+        logger.info(f"=== Signal {signal_id}: {executed} trade(s), {len(skips)} skip(s) ===")
+        return {"status": "ok", "trades_executed": executed}
+
+    # ================================================================
+    # V1 — Ancien mode (réplication des actions individuelles)
+    # ================================================================
+
+    def _execute_signal_v1(self, signal):
+        """Ancien mode : réplique les actions individuelles du signal."""
+        signal_id = signal.get("signal_id", "unknown")
+        logger.info(f"=== Exécution signal {signal_id} (v1) ===")
+
         can_trade, reason = self.budget_mgr.can_trade()
         if not can_trade:
             logger.warning(f"Cannot trade: {reason}")
@@ -45,7 +183,6 @@ class Follower:
             models.update_signal_status(signal_id, "executed")
             return {"status": "ok", "trades_executed": 0}
 
-        # Calculer notre capital total
         prices = self.market.get_prices()
         cash_usdt = self._get_cash_balance()
         positions = models.get_positions()
@@ -57,7 +194,6 @@ class Follower:
             models.update_signal_status(signal_id, "skipped", "No capital")
             return {"status": "skipped", "reason": "No capital", "trades_executed": 0}
 
-        # Exécuter chaque action
         executed = 0
         errors = []
         skips = []
@@ -67,7 +203,6 @@ class Follower:
                     action, signal_id, prices, total_value_usdt, positions,
                 )
                 if result is None:
-                    # Action ignorée (pct <= 0 ou échec exchange)
                     continue
                 if isinstance(result, dict) and result.get("skipped"):
                     skips.append(result["reason"])
@@ -77,29 +212,11 @@ class Follower:
                 logger.error(f"Erreur exécution {action}: {e}")
                 errors.append(str(e))
 
-        # Sauver un snapshot
-        eur_rate = self.market.get_eurusdc_rate()
-        # Recalculer après les trades
-        cash_usdt = self._get_cash_balance()
-        positions = models.get_positions()
-        portfolio_value = self._calc_portfolio_value(positions, prices)
-        total_usdt = cash_usdt + portfolio_value
-        total_eur = float(total_usdt * eur_rate)
+        self._save_snapshot(prices)
 
-        models.insert_snapshot(
-            total_value_eur=total_eur,
-            portfolio_value_usdt=float(portfolio_value),
-            cash_usdt=float(cash_usdt),
-        )
-
-        # Vérifier survie
-        self.budget_mgr.check_survival(total_eur)
-
-        # Mettre à jour le status du signal
         if errors:
             models.update_signal_status(signal_id, "error", "; ".join(errors))
         elif executed == 0 and skips:
-            # Toutes les actions ont été skippées — pas un vrai "executed"
             models.update_signal_status(signal_id, "skipped", "; ".join(skips))
         else:
             models.update_signal_status(signal_id, "executed")
@@ -108,92 +225,28 @@ class Follower:
         return {"status": "ok", "trades_executed": executed}
 
     def sync_to_leader(self, portfolio_state):
-        """Sync initial : calque l'allocation du leader sur le capital local.
+        """Sync initial via rebalancing v2.
 
-        Appelé uniquement quand le follower est vierge (aucune position).
-        Utilise le portfolio_state du dernier signal pour acheter
-        proportionnellement au capital local.
+        Construit un faux signal v2 à partir du portfolio_state
+        et délègue au rebalancing.
         """
-        logger.info("=== Sync initial sur le leader ===")
+        logger.info("=== Sync initial sur le leader (via rebalancing v2) ===")
+        fake_signal = {
+            "version": 2,
+            "signal_id": "initial_sync",
+            "portfolio_state": portfolio_state,
+            "confidence": 0,
+            "reasoning": "Initial sync",
+            "actions": [],
+        }
+        return self.execute_signal(fake_signal)
 
-        # Vérifier qu'on peut trader
-        can_trade, reason = self.budget_mgr.can_trade()
-        if not can_trade:
-            logger.warning(f"Sync impossible: {reason}")
-            return {"synced": False, "reason": reason}
-
-        # Calculer notre capital
-        prices = self.market.get_prices()
-        cash_usdt = self._get_cash_balance()
-        if cash_usdt <= 0:
-            logger.warning("Sync impossible: pas de capital")
-            return {"synced": False, "reason": "No capital"}
-
-        # Positions cibles du leader
-        leader_positions = portfolio_state.get("positions", [])
-        if not leader_positions:
-            logger.info("Sync: le leader n'a aucune position (100% cash)")
-            return {"synced": False, "reason": "Leader has no positions"}
-
-        total_local = cash_usdt  # 100% cash au démarrage
-        executed = 0
-        skips = []
-
-        for lp in leader_positions:
-            coin = lp["coin"]
-            pct = lp.get("pct_of_portfolio", 0)
-            if pct <= 0:
-                continue
-
-            amount_usdt = Decimal(str(pct)) * total_local
-
-            # Minimum Binance
-            if amount_usdt < Decimal(str(Settings.MIN_ORDER_USDC)):
-                reason = f"BUY {coin}: ${float(amount_usdt):.2f} < min"
-                logger.info(f"Skip sync {reason}")
-                skips.append(reason)
-                continue
-
-            result = self.exchange.execute_market_buy(coin, float(amount_usdt))
-            if not result:
-                skips.append(f"BUY {coin}: exchange error")
-                continue
-
-            # Enregistrer le trade avec signal_id = "initial_sync"
-            trade_id = models.insert_trade(
-                coin=coin, action="BUY",
-                amount_usdt=float(result["amount_usdt"]),
-                price=float(result["price"]),
-                quantity=float(result["quantity"]),
-                fee_usdt=float(result.get("fee", 0)),
-                signal_id="initial_sync",
-                is_simulated=result["simulated"],
-            )
-            self._update_position(coin, "BUY", result)
-            executed += 1
-            logger.info(f"Sync trade #{trade_id}: BUY {coin} ${float(result['amount_usdt']):.2f}")
-
-        # Sauver un snapshot
-        eur_rate = self.market.get_eurusdc_rate()
-        cash_usdt = self._get_cash_balance()
-        positions = models.get_positions()
-        portfolio_value = self._calc_portfolio_value(positions, prices)
-        total_eur = float((cash_usdt + portfolio_value) * eur_rate)
-        models.insert_snapshot(
-            total_value_eur=total_eur,
-            portfolio_value_usdt=float(portfolio_value),
-            cash_usdt=float(cash_usdt),
-        )
-
-        logger.info(f"=== Sync initial: {executed} achat(s), {len(skips)} skip(s) ===")
-        return {"synced": True, "executed": executed, "skips": skips}
+    # ================================================================
+    # Exécution des trades (partagé v1/v2)
+    # ================================================================
 
     def _execute_action(self, action, signal_id, prices, total_value_usdt, positions):
-        """Exécute une action individuelle du signal.
-
-        L'action contient pct_of_capital (pourcentage du capital du leader).
-        On applique ce même pourcentage à notre propre capital.
-        """
+        """Exécute une action individuelle du signal (v1 uniquement)."""
         coin = action["coin"]
         side = action["action"]
         pct = action.get("pct_of_capital", 0)
@@ -201,7 +254,6 @@ class Follower:
         if pct <= 0:
             return None
 
-        # Montant en USDC = pourcentage × notre capital
         amount_usdt = Decimal(str(pct)) * total_value_usdt
 
         if side == "BUY":
@@ -212,7 +264,7 @@ class Follower:
         return None
 
     def _execute_buy(self, coin, amount_usdt, signal_id, prices, total_value_usdt, positions):
-        """Exécute un achat. Le leader gère déjà le cap par position."""
+        """Exécute un achat."""
         # Vérifier le cash disponible en simulation (évite le cash négatif)
         if self.is_simulated:
             available = self._get_cash_balance()
@@ -235,7 +287,6 @@ class Follower:
         if not result:
             return None
 
-        # Enregistrer le trade
         trade_id = models.insert_trade(
             coin=coin, action="BUY",
             amount_usdt=float(result["amount_usdt"]),
@@ -246,7 +297,6 @@ class Follower:
             is_simulated=result["simulated"],
         )
 
-        # Mettre à jour la position
         self._update_position(coin, "BUY", result)
 
         logger.info(f"Trade #{trade_id}: BUY {coin} ${float(result['amount_usdt']):.2f}")
@@ -297,6 +347,10 @@ class Follower:
         logger.info(f"Trade #{trade_id}: SELL {coin} ${float(result['amount_usdt']):.2f}")
         return {"trade_id": trade_id, "coin": coin, "side": "SELL"}
 
+    # ================================================================
+    # Helpers
+    # ================================================================
+
     def _update_position(self, coin, side, result):
         """Met à jour une position après un trade."""
         pos = models.get_position(coin)
@@ -331,6 +385,23 @@ class Follower:
                     new_invested = old_invested * ratio
                     new_avg = Decimal(str(pos["avg_entry_price"]))
                 models.upsert_position(coin, float(new_qty), float(new_avg), float(new_invested))
+
+    def _save_snapshot(self, prices):
+        """Sauvegarde un snapshot du portfolio."""
+        eur_rate = self.market.get_eurusdc_rate()
+        cash = self._get_cash_balance()
+        positions = models.get_positions()
+        portfolio_value = self._calc_portfolio_value(positions, prices)
+        total_usdt = cash + portfolio_value
+        total_eur = float(total_usdt * eur_rate)
+
+        models.insert_snapshot(
+            total_value_eur=total_eur,
+            portfolio_value_usdt=float(portfolio_value),
+            cash_usdt=float(cash),
+        )
+
+        self.budget_mgr.check_survival(total_eur)
 
     def _get_cash_balance(self):
         """Solde USDC disponible."""
