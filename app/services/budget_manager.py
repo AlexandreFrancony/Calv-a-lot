@@ -72,3 +72,6 @@ class BudgetManager:
         if total_value_eur < self.settings.MIN_BUDGET_EUR:
             models.update_budget_status(budget["id"], "DEAD")
             logger.critical(f"Agent DEAD: {total_value_eur:.2f}€ < {self.settings.MIN_BUDGET_EUR}€")
+            # Alerte email
+            from app.services.notifier import alert_agent_dead
+            alert_agent_dead(total_value_eur, self.settings.MIN_BUDGET_EUR)

@@ -21,6 +21,7 @@ class Settings:
     # Sécurité trading
     MIN_ORDER_USDC = 5.0       # Minimum Binance (5 USDC)
     MIN_BUDGET_EUR = 5.0       # Agent meurt en-dessous
+    REBALANCE_THRESHOLD_PCT = float(os.environ.get("REBALANCE_THRESHOLD_PCT", "0.005"))  # 0.5%
 
     # Email alerts (optionnel)
     SMTP_HOST = os.environ.get("SMTP_HOST", "ssl0.ovh.net")

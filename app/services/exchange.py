@@ -5,6 +5,7 @@ même simulation dry_run avec slippage réaliste.
 """
 
 import logging
+import math
 from decimal import Decimal
 
 from binance.client import Client
@@ -16,6 +17,24 @@ logger = logging.getLogger("calvalot.exchange")
 
 # Timeout réseau Binance
 _BINANCE_TIMEOUT = 15  # secondes
+
+# stepSize par paire — nombre de décimales autorisées par Binance pour la quantité
+# Source : GET /api/v3/exchangeInfo → filters LOT_SIZE → stepSize
+_STEP_DECIMALS = {
+    "BTCUSDC": 5,   # stepSize 0.00001
+    "ETHUSDC": 4,   # stepSize 0.0001
+    "BNBUSDC": 3,   # stepSize 0.001
+    "SOLUSDC": 3,   # stepSize 0.001
+    "XRPUSDC": 1,   # stepSize 0.1
+}
+
+
+def _truncate_qty(symbol: str, qty: float) -> str:
+    """Tronque la quantité au stepSize Binance (arrondi vers le bas)."""
+    decimals = _STEP_DECIMALS.get(symbol, 8)
+    factor = 10 ** decimals
+    truncated = math.floor(qty * factor) / factor
+    return f"{truncated:.{decimals}f}"
 
 
 class ExchangeClient:
@@ -95,7 +114,7 @@ class ExchangeClient:
         try:
             order = self.client.order_market_sell(
                 symbol=symbol,
-                quantity=str(quantity),
+                quantity=_truncate_qty(symbol, quantity),
             )
             logger.info(f"SELL executed: {symbol} qty {quantity}")
             return {

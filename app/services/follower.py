@@ -85,7 +85,7 @@ class Follower:
             target_pct = target_alloc.get(coin, 0)
             delta = target_pct - current_pct
 
-            if abs(delta) < 0.005:  # Ignorer < 0.5%
+            if abs(delta) < Settings.REBALANCE_THRESHOLD_PCT:
                 continue
 
             amount_usdt = abs(delta) * float(total)

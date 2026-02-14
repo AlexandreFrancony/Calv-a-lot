@@ -23,6 +23,9 @@ _paused = False
 _last_poll_result = None
 _last_poll_time = None
 _follower = None  # Référence au Follower, injectée par __init__.py
+_poll_count = 0   # Compteur pour les tâches périodiques (cleanup, etc.)
+_last_new_signal_time = None  # Timestamp du dernier signal nouveau reçu
+_NO_SIGNAL_ALERT_SECONDS = 7200  # 2 heures sans signal = alerte
 
 
 def init_poller(follower_service):
@@ -66,9 +69,29 @@ def _poll_loop(follower_service):
 
 def _do_poll(follower_service):
     """Un cycle de polling."""
-    global _last_poll_result, _last_poll_time
+    global _last_poll_result, _last_poll_time, _poll_count, _last_new_signal_time
 
     _last_poll_time = time.time()
+    _poll_count += 1
+
+    # Tâches périodiques
+    # 1. Nettoyage des vieux snapshots (toutes les 720 itérations ≈ 1x/jour à 120s)
+    if _poll_count % 720 == 0:
+        try:
+            models.cleanup_old_snapshots()
+            logger.info("Nettoyage périodique des snapshots effectué")
+        except Exception as e:
+            logger.warning(f"Erreur nettoyage snapshots: {e}")
+
+    # 2. Alerte si pas de nouveau signal depuis 2h
+    if _last_new_signal_time:
+        silence = time.time() - _last_new_signal_time
+        if silence > _NO_SIGNAL_ALERT_SECONDS:
+            try:
+                from app.services.notifier import alert_no_signal
+                alert_no_signal(silence / 3600)
+            except Exception as e:
+                logger.warning(f"Erreur alerte no_signal: {e}")
 
     try:
         signal = _fetch_signal()
@@ -87,7 +110,15 @@ def _do_poll(follower_service):
             _last_poll_result = {"status": "already_processed", "signal_id": signal_id}
             return
 
+        _last_new_signal_time = time.time()
         logger.info(f"Nouveau signal reçu: {signal_id}")
+
+        # Reset l'alerte no_signal si on en reçoit un
+        try:
+            from app.services.notifier import reset_alert
+            reset_alert("no_signal")
+        except ImportError:
+            pass
 
         # Enregistrer le signal
         models.insert_signal(
@@ -98,8 +129,8 @@ def _do_poll(follower_service):
             portfolio_state=signal.get("portfolio_state"),
         )
 
-        # Exécuter le signal
-        result = follower_service.execute_signal(signal)
+        # Exécuter le signal (avec timeout pour éviter de bloquer le poller)
+        result = _execute_with_timeout(follower_service, signal, timeout=90)
         _last_poll_result = {
             "status": "executed",
             "signal_id": signal_id,
@@ -109,6 +140,37 @@ def _do_poll(follower_service):
     except Exception as e:
         logger.exception(f"Erreur polling: {e}")
         _last_poll_result = {"status": "error", "error": str(e)}
+
+
+def _execute_with_timeout(follower_service, signal, timeout=90):
+    """Exécute execute_signal dans un thread avec timeout.
+
+    Si l'exécution dépasse le timeout, on log un warning et on retourne
+    un résultat vide. Le thread d'exécution continue en arrière-plan
+    (Python ne permet pas de tuer un thread), mais le poller peut reprendre.
+    """
+    result_holder = [None]
+    error_holder = [None]
+
+    def _run():
+        try:
+            result_holder[0] = follower_service.execute_signal(signal)
+        except Exception as e:
+            error_holder[0] = e
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=timeout)
+
+    if t.is_alive():
+        signal_id = signal.get("signal_id", "unknown")
+        logger.error(f"execute_signal TIMEOUT ({timeout}s) pour signal {signal_id}")
+        return {"status": "timeout", "trades_executed": 0}
+
+    if error_holder[0]:
+        raise error_holder[0]
+
+    return result_holder[0] or {"status": "error", "trades_executed": 0}
 
 
 def _fetch_signal():
