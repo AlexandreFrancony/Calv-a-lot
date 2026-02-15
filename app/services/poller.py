@@ -7,6 +7,7 @@ toutes les POLL_INTERVAL_SECONDS secondes.
 import hashlib
 import hmac
 import logging
+import os
 import threading
 import time
 
@@ -108,6 +109,10 @@ def _do_poll(follower_service):
         # Vérifier si ce signal a déjà été traité (déduplication)
         if models.signal_exists(signal_id):
             _last_poll_result = {"status": "already_processed", "signal_id": signal_id}
+            # Même si le signal est déjà traité, vérifier l'update
+            update_info = signal.get("update")
+            if update_info and update_info.get("required"):
+                _request_update(update_info)
             return
 
         _last_new_signal_time = time.time()
@@ -136,6 +141,12 @@ def _do_poll(follower_service):
             "signal_id": signal_id,
             "trades": result.get("trades_executed", 0),
         }
+
+        # Auto-update : vérifier si le leader demande une mise à jour
+        # (toujours APRÈS l'exécution du signal — trading prioritaire)
+        update_info = signal.get("update")
+        if update_info and update_info.get("required"):
+            _request_update(update_info)
 
     except Exception as e:
         logger.exception(f"Erreur polling: {e}")
@@ -188,6 +199,7 @@ def _fetch_signal():
     headers = {
         "X-Signal-Timestamp": timestamp,
         "X-Signal-Signature": signature,
+        "X-Follower-Version": Settings.VERSION,
     }
 
     try:
@@ -217,11 +229,29 @@ def _fetch_signal():
         return None
 
 
+def _request_update(update_info):
+    """Écrit un flag file pour déclencher la mise à jour côté hôte.
+
+    Le script updater.sh (cron toutes les 5 min) détecte ce flag,
+    fait un git pull et rebuild Docker.
+    """
+    flag_path = os.path.join(os.path.dirname(Settings.DB_PATH), "UPDATE_REQUESTED")
+    try:
+        latest = update_info.get("latest_version", "unknown")
+        current = Settings.VERSION
+        with open(flag_path, "w") as f:
+            f.write(f"latest={latest}\ncurrent={current}\n")
+        logger.info(f"Update requested: {current} -> {latest} (flag written)")
+    except Exception as e:
+        logger.error(f"Failed to write update flag: {e}")
+
+
 def get_status():
     """Status du poller pour le dashboard."""
     return {
         "running": _running and not _paused,
         "paused": _paused,
+        "version": Settings.VERSION,
         "poll_interval_seconds": Settings.POLL_INTERVAL_SECONDS,
         "leader_url": "***" if Settings.LEADER_URL else None,
         "last_poll": _last_poll_result,

@@ -32,6 +32,7 @@ def health():
     return jsonify({
         "status": ok,
         "service": "calvalot",
+        "version": Settings.VERSION,
         "poller": poller_msg,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }), 200 if poller_ok else 503

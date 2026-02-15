@@ -2,6 +2,8 @@
 data/calvalot.db
 data/calvalot.db-shm
 data/calvalot.db-wal
+data/UPDATE_REQUESTED
+data/updater.log
 __pycache__/
 *.pyc
 .DS_Store

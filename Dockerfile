@@ -15,6 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Version (git commit hash, passé au build par start.sh / updater.sh)
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=$GIT_COMMIT
+
 # Créer le dossier data pour SQLite
 RUN mkdir -p /app/data
 

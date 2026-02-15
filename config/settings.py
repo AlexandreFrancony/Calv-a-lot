@@ -37,5 +37,8 @@ class Settings:
     API_USER = os.environ.get("API_USER", "admin")
     API_PASSWORD_HASH = os.environ.get("API_PASSWORD_HASH", "")  # werkzeug hash
 
+    # Version (git commit hash, baké dans l'image Docker au build)
+    VERSION = os.environ.get("GIT_COMMIT", "unknown")
+
     # Server
     PORT = int(os.environ.get("PORT", "8080"))

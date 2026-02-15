@@ -9,6 +9,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
     container_name: calvalot
     restart: unless-stopped
     security_opt:
