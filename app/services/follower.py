@@ -451,24 +451,24 @@ class Follower:
             budget = models.get_budget()
             if not budget:
                 return Decimal(0)
-            # En dry_run : budget initial - investi + ventes - retraits
+            # En dry_run : budget initial en USDC - achats + ventes - retraits
             eur_rate = self.market.get_eurusdc_rate()
             total_usdc = Decimal(str(budget["initial_total_eur"])) / eur_rate
-            positions = models.get_positions()
-            invested = sum(Decimal(str(p["total_invested_usdt"])) for p in positions)
-            sells = self._get_total_sell_proceeds()
+            total_bought = self._get_total_trade_amount("BUY")
+            total_sold = self._get_total_trade_amount("SELL")
             withdrawals = Decimal(str(models.get_total_withdrawals()))
-            return total_usdc - invested + sells - withdrawals
+            return total_usdc - total_bought + total_sold - withdrawals
 
         # En live, solde réel Binance
         return self.exchange.get_account_balance("USDC")
 
-    def _get_total_sell_proceeds(self):
-        """Total USDC reçu des ventes (pour calcul cash dry_run)."""
+    def _get_total_trade_amount(self, action):
+        """Total USDC dépensé (BUY) ou reçu (SELL) depuis les trades."""
         from app.db import get_cursor
         with get_cursor() as cur:
             cur.execute(
-                "SELECT COALESCE(SUM(amount_usdt), 0) FROM trades WHERE action = 'SELL'"
+                "SELECT COALESCE(SUM(amount_usdt), 0) FROM trades WHERE action = ?",
+                (action,),
             )
             return Decimal(str(cur.fetchone()[0]))
 
