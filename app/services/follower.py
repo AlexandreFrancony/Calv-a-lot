@@ -363,6 +363,13 @@ class Follower:
         if qty_to_sell > available:
             qty_to_sell = available
 
+        # Anti-dust: si le reste après vente < $2.50, vendre tout
+        remaining_qty = available - qty_to_sell
+        remaining_value = remaining_qty * price
+        if Decimal(0) < remaining_value < Decimal("2.50"):
+            logger.info(f"SELL {coin}: remaining ${float(remaining_value):.2f} < $2.50 dust threshold, selling all")
+            qty_to_sell = available
+
         # Minimum Binance
         sell_value = qty_to_sell * price
         if sell_value < Decimal(str(Settings.MIN_ORDER_USDC)):
