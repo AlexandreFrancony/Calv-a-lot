@@ -50,7 +50,14 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - default
+      - cashalot_network
     deploy:
       resources:
         limits:
           memory: 192M
+
+networks:
+  cashalot_network:
+    external: true
