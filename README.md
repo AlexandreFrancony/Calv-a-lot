@@ -5,16 +5,16 @@ Copy-trading follower pour [Cash-a-lot](https://github.com/AlexandreFrancony/Cas
 ## Comment ca marche
 
 ```
-Cash-a-lot (chez Alex)          Calv-a-lot (chez toi)
+Cash-a-lot (leader)             Calv-a-lot (follower)
 +-----------------------+       +-----------------------+
 | Claude AI decide      |       | Poll toutes les 2 min |
-| BUY 7% BTC, SELL 5%  | HTTPS | Recoit le signal      |
+| BUY 7% BTC, SELL 5%  | HTTP  | Recoit le signal      |
 | SOL...                |<------| Replique: BUY 7% de   |
 | /api/signal/latest    |       | MON capital en BTC... |
 +-----------------------+       +-----------------------+
 ```
 
-- **Polling HTTPS** : Calv-a-lot interroge Cash-a-lot toutes les 2 minutes (pas besoin d'ouvrir de ports chez toi)
+- **Polling HTTP** : Calv-a-lot interroge Cash-a-lot toutes les 2 minutes via le reseau Docker interne (ou HTTPS si deploye sur un autre serveur)
 - **Proportionnel** : les trades sont en % du capital, pas en montant absolu
 - **Autonome** : ton argent reste sur TON compte Binance, tes cles API ne quittent jamais ta machine
 - **Auth HMAC** : les signaux sont signes cryptographiquement (SHA-256)
@@ -46,7 +46,9 @@ Remplis le `.env` avec tes propres valeurs. Voici une commande pour tout remplir
 ```bash
 cat > .env << 'EOF'
 # === Leader (Cash-a-lot) ===
-LEADER_URL=https://crypto.francony.fr
+# Sur le meme serveur Docker : http://cashalot:8080
+# Depuis un autre serveur : https://crypto.francony.fr
+LEADER_URL=http://cashalot:8080
 SIGNAL_SECRET=demander_a_alex
 
 # === Binance API (tes propres cles) ===
@@ -172,8 +174,9 @@ docker ps | grep calvalot
 ## Troubleshooting
 
 ### Le dashboard affiche "Leader: Disconnected"
-- Verifie que Cash-a-lot tourne (`https://crypto.francony.fr` accessible)
-- Verifie le `SIGNAL_SECRET` dans ton `.env`
+- Verifie que Cash-a-lot tourne (`docker ps | grep cashalot`)
+- Verifie le `LEADER_URL` dans ton `.env` (Docker interne : `http://cashalot:8080`)
+- Verifie le `SIGNAL_SECRET` dans ton `.env` (doit correspondre a celui de Cash-a-lot)
 - Regarde les logs : `docker compose logs -f`
 
 ### Aucun trade ne s'execute
