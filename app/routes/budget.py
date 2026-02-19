@@ -3,7 +3,6 @@ import logging
 from flask import Blueprint, jsonify, request
 
 from app import models
-from app.auth import auth
 
 logger = logging.getLogger("calvalot.routes.budget")
 
@@ -11,7 +10,6 @@ budget_bp = Blueprint("budget", __name__)
 
 
 @budget_bp.route("/api/budget")
-@auth.login_required
 def get_budget():
     from app.services.poller import _follower
     mgr = _follower.budget_mgr if _follower else None
@@ -46,7 +44,6 @@ def get_budget():
 
 
 @budget_bp.route("/api/budget/history")
-@auth.login_required
 def get_budget_history():
     limit = request.args.get("limit", 5000, type=int)
     limit = min(limit, 5000)
@@ -58,7 +55,6 @@ def get_budget_history():
 
 
 @budget_bp.route("/api/budget/deposit", methods=["POST"])
-@auth.login_required
 def add_deposit():
     """Enregistrer un dépôt manuel."""
     data = request.get_json()
@@ -85,7 +81,6 @@ def add_deposit():
 
 
 @budget_bp.route("/api/budget/deposit", methods=["PUT"])
-@auth.login_required
 def set_deposit():
     """Corriger manuellement le total déposé."""
     data = request.get_json()
@@ -109,7 +104,6 @@ def set_deposit():
 
 
 @budget_bp.route("/api/budget/withdrawals")
-@auth.login_required
 def get_withdrawals():
     """Historique des retraits."""
     limit = request.args.get("limit", 50, type=int)

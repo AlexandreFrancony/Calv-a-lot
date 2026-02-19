@@ -113,7 +113,7 @@
     </style>
 </head>
 <body class="min-h-screen">
-    <div id="mainContent" class="container mx-auto px-4 py-6 max-w-6xl" style="display:none;">
+    <div id="mainContent" class="container mx-auto px-4 py-6 max-w-6xl">
 
         <!-- Header -->
         <div class="flex items-center justify-between mb-6">
@@ -268,20 +268,6 @@
         <p class="text-center text-muted text-xs">Calv-a-lot v1.0 | Follower | Auto-refresh 30s</p>
     </div>
 
-    <!-- Login Modal -->
-    <div id="loginOverlay" style="display:flex; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); align-items:center; justify-content:center;">
-        <div class="card p-8" style="min-width:320px; max-width:400px;">
-            <h2 class="text-xl font-bold mb-4" style="color:var(--text-primary)">🔐 Calv-a-lot</h2>
-            <p class="text-sm mb-4" style="color:var(--text-secondary)">Authentification requise</p>
-            <form onsubmit="event.preventDefault();doLogin()">
-              <input id="loginUser" name="username" type="text" autocomplete="username" placeholder="Utilisateur" class="w-full p-2 rounded mb-3" style="background:var(--bg-primary);border:1px solid var(--border);color:var(--text-primary);">
-              <input id="loginPass" name="password" type="password" autocomplete="current-password" placeholder="Mot de passe" class="w-full p-2 rounded mb-4" style="background:var(--bg-primary);border:1px solid var(--border);color:var(--text-primary);">
-              <button type="submit" class="btn-primary w-full py-2 rounded font-semibold">Connexion</button>
-            </form>
-            <p id="loginError" class="text-sm mt-2" style="color:var(--negative);display:none;">Identifiants incorrects</p>
-        </div>
-    </div>
-
     <script>
     // Init theme icon visibility
     (function() {
@@ -298,56 +284,6 @@
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    // ── Auth ──────────────────────────────────────────
-    let _authHeader = null;
-
-    function getAuthHeaders() {
-        if (!_authHeader) return {};
-        return { 'Authorization': _authHeader };
-    }
-
-    function authFetch(url, options = {}) {
-        const headers = { ...getAuthHeaders(), ...(options.headers || {}) };
-        return fetch(url, { ...options, headers }).then(resp => {
-            if (resp.status === 401) {
-                _authHeader = null;
-                showLogin();
-                throw new Error('Unauthorized');
-            }
-            return resp;
-        });
-    }
-
-    async function doLogin() {
-        const user = document.getElementById('loginUser').value;
-        const pass = document.getElementById('loginPass').value;
-        _authHeader = 'Basic ' + btoa(user + ':' + pass);
-        try {
-            const resp = await authFetch('/api/agent/status');
-            if (resp.ok) {
-                hideLogin();
-                document.getElementById('mainContent').style.display = '';
-                startDashboard();
-            } else {
-                _authHeader = null;
-                document.getElementById('loginError').style.display = 'block';
-            }
-        } catch (e) {
-            _authHeader = null;
-            document.getElementById('loginError').style.display = 'block';
-        }
-    }
-
-    function showLogin() {
-        document.getElementById('loginOverlay').style.display = 'flex';
-        document.getElementById('mainContent').style.display = 'none';
-    }
-
-    function hideLogin() {
-        document.getElementById('loginOverlay').style.display = 'none';
-        document.getElementById('loginError').style.display = 'none';
-    }
-
     let currentPrices = {};
     let currentPeriod = '1w';
 
@@ -358,7 +294,7 @@
 
     async function fetchJSON(url) {
         try {
-            var res = await authFetch(url);
+            var res = await fetch(url);
             if (!res.ok) throw new Error(res.statusText);
             return await res.json();
         } catch (e) {
@@ -661,7 +597,7 @@
     });
 
     async function toggleAgent() {
-        await authFetch('/api/agent/toggle', { method: 'POST' });
+        await fetch('/api/agent/toggle', { method: 'POST' });
         setTimeout(updateAgent, 500);
     }
 
@@ -677,7 +613,7 @@
         statusEl.style.color = 'var(--warning)';
 
         try {
-            var res = await authFetch('/api/budget/deposit', {
+            var res = await fetch('/api/budget/deposit', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({amount_eur: amount})
@@ -718,6 +654,9 @@
         if (_dashboardInterval) clearInterval(_dashboardInterval);
         _dashboardInterval = setInterval(refreshAll, 30000);
     }
+
+    // Auto-start
+    startDashboard();
     </script>
 </body>
 </html>
