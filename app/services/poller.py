@@ -26,7 +26,7 @@ _last_poll_time = None
 _follower = None  # Référence au Follower, injectée par __init__.py
 _poll_count = 0   # Compteur pour les tâches périodiques (cleanup, etc.)
 _last_new_signal_time = None  # Timestamp du dernier signal nouveau reçu
-_NO_SIGNAL_ALERT_SECONDS = 7200  # 2 heures sans signal = alerte
+_NO_SIGNAL_ALERT_SECONDS = 14400  # 4 heures sans signal = alerte (Cash-a-lot cycle = 1h + pre-filter skip)
 
 
 def init_poller(follower_service):
