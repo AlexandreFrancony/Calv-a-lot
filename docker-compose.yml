@@ -3,6 +3,12 @@
 #
 # Usage:
 #   docker compose up -d
+#
+# First-time setup: open http://IP:8080 in your browser.
+# Config is saved to ./data/config.json and persists across restarts.
+#
+# For same-server deployment with Cash-a-lot, create a
+# docker-compose.override.yml to add the shared network (see README).
 
 services:
   follower:
@@ -19,11 +25,11 @@ services:
       - ALL
     environment:
       TZ: Europe/Paris
-      LEADER_URL: ${LEADER_URL:?LEADER_URL is required}
-      SIGNAL_SECRET: ${SIGNAL_SECRET:?SIGNAL_SECRET is required}
-      BINANCE_API_KEY: ${BINANCE_API_KEY:?Binance API key required}
-      BINANCE_API_SECRET: ${BINANCE_API_SECRET:?Binance API secret required}
-      BINANCE_TESTNET: ${BINANCE_TESTNET:-true}
+      LEADER_URL: ${LEADER_URL:-}
+      SIGNAL_SECRET: ${SIGNAL_SECRET:-}
+      BINANCE_API_KEY: ${BINANCE_API_KEY:-}
+      BINANCE_API_SECRET: ${BINANCE_API_SECRET:-}
+      BINANCE_TESTNET: ${BINANCE_TESTNET:-false}
       TRADING_MODE: ${TRADING_MODE:-dry_run}
       INITIAL_BUDGET_EUR: ${INITIAL_BUDGET_EUR:-100}
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-120}
@@ -50,14 +56,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    networks:
-      - default
-      - cashalot_network
     deploy:
       resources:
         limits:
           memory: 192M
-
-networks:
-  cashalot_network:
-    external: true

@@ -14,73 +14,38 @@ Cash-a-lot (leader)             Calv-a-lot (follower)
 +-----------------------+       +-----------------------+
 ```
 
-- **Polling HTTP** : Calv-a-lot interroge Cash-a-lot toutes les 2 minutes via le reseau Docker interne (ou HTTPS si deploye sur un autre serveur)
 - **Proportionnel** : les trades sont en % du capital, pas en montant absolu
 - **Autonome** : ton argent reste sur TON compte Binance, tes cles API ne quittent jamais ta machine
 - **Auth HMAC** : les signaux sont signes cryptographiquement (SHA-256)
+- **Setup web** : configuration via le navigateur, pas besoin de toucher au terminal
 
 ## Prerequis
 
 - **Docker** et **Docker Compose** installes
 - Un compte **Binance** avec des USDC dans le **Spot wallet**
-- Les **cles API Binance** (avec permissions Spot trading)
-- Le **SIGNAL_SECRET** (a demander a Alex)
+- L'**URL** et le **code secret** (fournis par Alex)
 
 ## Installation
 
-### 1. Cloner le repo
+### 1. Cloner et lancer
 
 ```bash
 git clone https://github.com/AlexandreFrancony/Calv-a-lot.git
 cd Calv-a-lot
+docker compose up -d
 ```
 
-### 2. Configurer le `.env`
+### 2. Configurer
 
-```bash
-cp .env.example .env
-```
+Ouvre `http://<adresse-ip>:8080` dans ton navigateur. Un assistant de configuration te guide :
 
-Remplis le `.env` avec tes propres valeurs. Voici une commande pour tout remplir d'un coup :
+1. **Connexion** — entre l'URL du leader et le code secret (donnes par Alex)
+2. **Binance** — entre tes cles API (le wizard verifie qu'elles fonctionnent)
+3. **Budget** — choisis ton montant et le mode (simulation ou reel)
 
-```bash
-cat > .env << 'EOF'
-# === Leader (Cash-a-lot) ===
-# Sur le meme serveur Docker : http://cashalot:8080
-# Depuis un autre serveur : https://crypto.francony.fr
-LEADER_URL=http://cashalot:8080
-SIGNAL_SECRET=demander_a_alex
+C'est tout ! Le bot demarre automatiquement apres la configuration.
 
-# === Binance API (tes propres cles) ===
-BINANCE_API_KEY=ta_cle_api_binance
-BINANCE_API_SECRET=ton_secret_api_binance
-BINANCE_TESTNET=false
-
-# === Trading ===
-TRADING_MODE=dry_run
-INITIAL_BUDGET_EUR=100
-POLL_INTERVAL_SECONDS=120
-EOF
-```
-
-> **Remplace** les valeurs `demander_a_alex`, `ta_cle_api_binance`, `ton_secret_api_binance` et `INITIAL_BUDGET_EUR` par tes vraies valeurs.
-
-### 3. Lancer
-
-```bash
-chmod +x start.sh
-./start.sh
-```
-
-L'URL du dashboard s'affiche automatiquement a la fin :
-```
-==========================================
-  Calv-a-lot is running!
-  Dashboard: http://192.168.1.42:8080
-==========================================
-```
-
-Ouvre cette URL dans un navigateur (PC, telephone, tablette sur le meme reseau Wi-Fi).
+> **Alternative** : tu peux aussi configurer via un fichier `.env` (voir `.env.example`). Les variables d'environnement ont priorite sur la config web.
 
 ## Modes de trading
 
@@ -89,10 +54,7 @@ Ouvre cette URL dans un navigateur (PC, telephone, tablette sur le meme reseau W
 | `dry_run` | Simulation (aucun vrai ordre, parfait pour tester) |
 | `live` | Vrais ordres Binance (**vrai argent !**) |
 
-> **Commence TOUJOURS en `dry_run`** pour verifier que tout fonctionne. Quand tu es pret, change `TRADING_MODE=live` dans le `.env` puis relance :
-> ```bash
-> docker compose down && docker compose up -d
-> ```
+> **Commence TOUJOURS en simulation** pour verifier que tout fonctionne.
 
 ## Paires tradees
 
@@ -119,21 +81,11 @@ Le dashboard affiche en temps reel :
 - **Trades executes**
 - **Graphique** d'evolution du portfolio
 
-## Cycle de polling
-
-Toutes les 2 minutes, Calv-a-lot :
-1. Interroge Cash-a-lot (`/api/signal/latest`) avec authentification HMAC
-2. Verifie si le signal est nouveau (deduplication)
-3. Si nouveau : execute les trades proportionnellement a ton capital
-4. Enregistre le signal + trades dans la base de donnees
-5. Sauvegarde un snapshot du portfolio
-6. Verifie la survie (< 5 EUR = DEAD)
-
 ## Commandes utiles
 
 ```bash
-# Demarrer (affiche l'URL du dashboard)
-./start.sh
+# Demarrer
+docker compose up -d
 
 # Voir les logs en temps reel
 docker compose logs -f
@@ -141,27 +93,26 @@ docker compose logs -f
 # Arreter
 docker compose down
 
-# Redemarrer apres modif du .env
+# Redemarrer
 docker compose down && docker compose up -d
-
-# Verifier que le container tourne
-docker ps | grep calvalot
 ```
 
-## API Endpoints
+## Deploiement sur le meme serveur que Cash-a-lot
 
-| Endpoint | Methode | Description |
-|----------|---------|-------------|
-| `/health` | GET | Health check |
-| `/` | GET | Dashboard |
-| `/api/budget` | GET | Budget + valeur portfolio |
-| `/api/budget/history` | GET | Historique pour graphique |
-| `/api/budget/deposit` | POST | Enregistrer un depot |
-| `/api/trades` | GET | Trades recents |
-| `/api/positions` | GET | Positions actuelles |
-| `/api/signals` | GET | Signaux recus |
-| `/api/agent/status` | GET | Status du poller |
-| `/api/agent/toggle` | POST | Pause/resume le poller |
+Si Calv-a-lot tourne sur le meme serveur Docker que Cash-a-lot, cree un fichier `docker-compose.override.yml` pour partager le reseau :
+
+```yaml
+services:
+  follower:
+    networks:
+      - default
+      - cashalot_network
+networks:
+  cashalot_network:
+    external: true
+```
+
+Puis configure l'URL du leader comme `http://cashalot:8080` (reseau Docker interne).
 
 ## Auto-update
 
@@ -180,6 +131,7 @@ Calv-a-lot se met a jour automatiquement quand un nouveau commit est pousse sur 
 - **SQLite** en WAL mode (zero dependance externe)
 - **Docker** : non-root user, no-new-privileges, 192MB RAM max
 - **Polling** thread-based (pas de cron, pas d'APScheduler)
+- **Setup web** : configuration via navigateur au premier lancement
 - **Auto-update** via signal Cash-a-lot + cron `updater.sh`
 - Pas d'appels a Claude AI (seul Cash-a-lot utilise l'IA)
 
@@ -187,8 +139,8 @@ Calv-a-lot se met a jour automatiquement quand un nouveau commit est pousse sur 
 
 ### Le dashboard affiche "Leader: Disconnected"
 - Verifie que Cash-a-lot tourne (`docker ps | grep cashalot`)
-- Verifie le `LEADER_URL` dans ton `.env` (Docker interne : `http://cashalot:8080`)
-- Verifie le `SIGNAL_SECRET` dans ton `.env` (doit correspondre a celui de Cash-a-lot)
+- Verifie l'URL du leader dans ta config
+- Verifie le code secret (doit correspondre a celui de Cash-a-lot)
 - Regarde les logs : `docker compose logs -f`
 
 ### Aucun trade ne s'execute

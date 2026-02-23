@@ -2,8 +2,10 @@
 data/calvalot.db
 data/calvalot.db-shm
 data/calvalot.db-wal
+data/config.json
 data/UPDATE_REQUESTED
 data/updater.log
+docker-compose.override.yml
 __pycache__/
 *.pyc
 .DS_Store

@@ -4,10 +4,12 @@ from app.routes.budget import budget_bp
 from app.routes.trades import trades_bp
 from app.routes.signals import signals_bp
 from app.routes.agent import agent_bp
+from app.routes.setup import setup_bp
 
 
 def register_routes(app):
     app.register_blueprint(health_bp)
+    app.register_blueprint(setup_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(budget_bp)
     app.register_blueprint(trades_bp)

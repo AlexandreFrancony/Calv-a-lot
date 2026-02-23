@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calv-a-lot | Configuration</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐋</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    (function() {
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+    })();
+    </script>
+    <style>
+        :root {
+            --bg-primary: #F5EFE0;
+            --bg-card: #EFE6D6;
+            --bg-header: #E8DECA;
+            --bg-input: #E8DECA;
+            --border: #D3C5AE;
+            --text-primary: #3E2E22;
+            --text-secondary: #5A4634;
+            --text-muted: #8A7A6A;
+            --accent: #C65F3C;
+            --accent-hover: #B34924;
+            --positive: #16a34a;
+            --negative: #dc2626;
+            --warning: #d97706;
+        }
+        [data-theme="dark"] {
+            --bg-primary: #2A2018;
+            --bg-card: #382A20;
+            --bg-header: #231B14;
+            --bg-input: #3E2E22;
+            --border: #5A4634;
+            --text-primary: #F5EFE0;
+            --text-secondary: #E6D7C3;
+            --text-muted: #8A7A6A;
+            --accent: #C65F3C;
+            --accent-hover: #D87D5C;
+            --positive: #22c55e;
+            --negative: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body { background: var(--bg-primary); color: var(--text-primary); font-family: system-ui, -apple-system, sans-serif; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); }
+        .input-field {
+            background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary);
+            border-radius: 0.5rem; padding: 0.625rem 0.875rem; width: 100%; outline: none;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus { border-color: var(--accent); }
+        .input-field::placeholder { color: var(--text-muted); }
+        .btn-primary {
+            background: var(--accent); color: #fff; border: none; border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem; cursor: pointer; font-weight: 600; transition: background 0.2s;
+        }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary {
+            background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border);
+            border-radius: 0.5rem; padding: 0.5rem 1rem; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-secondary:hover { background: var(--border); }
+        .text-muted { color: var(--text-muted); }
+        .text-accent { color: var(--accent); }
+        .section-ok { border-left: 3px solid var(--positive) !important; }
+        .section-err { border-left: 3px solid var(--negative) !important; }
+        .badge-ok { background: var(--positive); color: #fff; font-size: 0.75rem; padding: 0.125rem 0.5rem; border-radius: 9999px; }
+        .badge-err { background: var(--negative); color: #fff; font-size: 0.75rem; padding: 0.125rem 0.5rem; border-radius: 9999px; }
+        .warning-box { background: rgba(217, 119, 6, 0.1); border: 1px solid var(--warning); color: var(--warning); border-radius: 0.5rem; padding: 0.75rem; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-lg">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="text-4xl mb-2">🐋</div>
+            <h1 class="text-2xl font-bold">Calv-a-lot</h1>
+            <p class="text-muted mt-1">Configuration initiale</p>
+        </div>
+
+        <!-- Section 1: Leader -->
+        <div id="section-leader" class="card rounded-xl p-5 mb-4 fade-in">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-semibold text-lg">1. Connexion au leader</h2>
+                <span id="badge-leader" class="hidden"></span>
+            </div>
+            <p class="text-muted text-sm mb-4">Cash-a-lot te fournira les signaux de trading. Alex t'a normalement donné une URL et un code secret.</p>
+
+            <label class="block text-sm font-medium mb-1">URL du leader</label>
+            <input id="leader_url" type="text" class="input-field mb-3" placeholder="https://crypto.francony.fr" value="https://crypto.francony.fr">
+
+            <label class="block text-sm font-medium mb-1">Code secret</label>
+            <input id="signal_secret" type="password" class="input-field mb-3" placeholder="Fourni par Alex">
+
+            <button onclick="validateLeader()" class="btn-secondary text-sm">Tester la connexion</button>
+            <span id="leader-status" class="ml-2 text-sm"></span>
+        </div>
+
+        <!-- Section 2: Binance -->
+        <div id="section-binance" class="card rounded-xl p-5 mb-4 fade-in">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-semibold text-lg">2. Compte Binance</h2>
+                <span id="badge-binance" class="hidden"></span>
+            </div>
+            <p class="text-muted text-sm mb-3">Tes propres cles API Binance. Ton argent reste sur TON compte.</p>
+
+            <div class="card rounded-lg p-3 mb-4" style="background: var(--bg-input);">
+                <p class="text-sm font-medium mb-2">Comment creer tes cles API :</p>
+                <ol class="text-sm text-muted list-decimal list-inside space-y-1">
+                    <li>Va sur <a href="https://www.binance.com/en/my/settings/api-management" target="_blank" class="text-accent underline">Binance &gt; API Management</a></li>
+                    <li>Clique "Create API" &gt; choisis "System generated"</li>
+                    <li>Active la permission <strong>"Enable Spot &amp; Margin Trading"</strong></li>
+                    <li>Copie la cle API et le secret ci-dessous</li>
+                </ol>
+            </div>
+
+            <label class="block text-sm font-medium mb-1">Cle API</label>
+            <input id="binance_api_key" type="text" class="input-field mb-3" placeholder="Ex: aB3dE5fG7hI9...">
+
+            <label class="block text-sm font-medium mb-1">Secret API</label>
+            <input id="binance_api_secret" type="password" class="input-field mb-3" placeholder="Ex: xY1zW2vU3tS4...">
+
+            <button onclick="validateBinance()" class="btn-secondary text-sm">Verifier les cles</button>
+            <span id="binance-status" class="ml-2 text-sm"></span>
+        </div>
+
+        <!-- Section 3: Trading -->
+        <div id="section-trading" class="card rounded-xl p-5 mb-4 fade-in">
+            <h2 class="font-semibold text-lg mb-3">3. Trading</h2>
+
+            <label class="block text-sm font-medium mb-1">Budget initial (EUR)</label>
+            <p class="text-muted text-xs mb-2">Combien tu veux investir. Tu dois avoir l'equivalent en USDC dans ton Spot wallet Binance.</p>
+            <input id="initial_budget" type="number" class="input-field mb-4" value="100" min="10" step="10">
+
+            <label class="block text-sm font-medium mb-2">Mode</label>
+            <div class="space-y-2 mb-3">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="radio" name="trading_mode" value="dry_run" checked class="accent-[var(--accent)]">
+                    <div>
+                        <span class="font-medium">Simulation</span>
+                        <span class="text-muted text-sm ml-1">— aucun vrai ordre, parfait pour tester</span>
+                    </div>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="radio" name="trading_mode" value="live" class="accent-[var(--accent)]">
+                    <div>
+                        <span class="font-medium">Reel</span>
+                        <span class="text-muted text-sm ml-1">— vrai argent !</span>
+                    </div>
+                </label>
+            </div>
+
+            <div id="live-warning" class="warning-box hidden text-sm">
+                ⚠️ En mode reel, tes USDC seront reellement trades sur Binance. Commence par la simulation pour verifier que tout fonctionne.
+            </div>
+        </div>
+
+        <!-- Errors -->
+        <div id="global-errors" class="hidden text-sm p-3 rounded-lg mb-4" style="background: rgba(220, 38, 38, 0.1); border: 1px solid var(--negative); color: var(--negative);"></div>
+
+        <!-- Submit -->
+        <button id="btn-launch" onclick="saveConfig()" class="btn-primary w-full text-lg py-3 rounded-xl">
+            Lancer Calv-a-lot
+        </button>
+        <p class="text-muted text-xs text-center mt-3">La configuration sera sauvegardee et persistera entre les redemarrages.</p>
+    </div>
+
+    <script>
+    // Show/hide live warning
+    document.querySelectorAll('input[name="trading_mode"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            document.getElementById('live-warning').classList.toggle('hidden', this.value !== 'live');
+        });
+    });
+
+    function setStatus(id, text, ok) {
+        var el = document.getElementById(id);
+        el.textContent = text;
+        el.style.color = ok === true ? 'var(--positive)' : ok === false ? 'var(--negative)' : 'var(--text-muted)';
+    }
+
+    function setBadge(id, ok) {
+        var el = document.getElementById(id);
+        el.className = ok ? 'badge-ok' : 'badge-err';
+        el.textContent = ok ? 'OK' : 'Erreur';
+        el.classList.remove('hidden');
+    }
+
+    function setSectionState(sectionId, ok) {
+        var el = document.getElementById(sectionId);
+        el.classList.remove('section-ok', 'section-err');
+        el.classList.add(ok ? 'section-ok' : 'section-err');
+    }
+
+    function getFormData() {
+        return {
+            leader_url: document.getElementById('leader_url').value.trim(),
+            signal_secret: document.getElementById('signal_secret').value.trim(),
+            binance_api_key: document.getElementById('binance_api_key').value.trim(),
+            binance_api_secret: document.getElementById('binance_api_secret').value.trim(),
+            binance_testnet: false,
+            initial_budget_eur: parseFloat(document.getElementById('initial_budget').value) || 100,
+            trading_mode: document.querySelector('input[name="trading_mode"]:checked').value,
+        };
+    }
+
+    async function validateLeader() {
+        setStatus('leader-status', 'Test en cours...', null);
+        var data = getFormData();
+        try {
+            var resp = await fetch('/api/setup/validate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({leader_url: data.leader_url, signal_secret: data.signal_secret}),
+            });
+            var result = await resp.json();
+            if (result.leader_ok) {
+                setStatus('leader-status', 'Connecte !', true);
+                setBadge('badge-leader', true);
+                setSectionState('section-leader', true);
+            } else {
+                var err = result.errors.length ? result.errors[0] : 'Connexion echouee';
+                setStatus('leader-status', err, false);
+                setBadge('badge-leader', false);
+                setSectionState('section-leader', false);
+            }
+        } catch (e) {
+            setStatus('leader-status', 'Erreur reseau', false);
+        }
+    }
+
+    async function validateBinance() {
+        setStatus('binance-status', 'Verification...', null);
+        var data = getFormData();
+        try {
+            var resp = await fetch('/api/setup/validate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({binance_api_key: data.binance_api_key, binance_api_secret: data.binance_api_secret, binance_testnet: data.binance_testnet}),
+            });
+            var result = await resp.json();
+            if (result.binance_ok) {
+                var msg = 'Cles valides !';
+                if (result.binance_balance_usdc !== null) {
+                    msg += ' (Solde: ' + result.binance_balance_usdc.toFixed(2) + ' USDC)';
+                }
+                setStatus('binance-status', msg, true);
+                setBadge('badge-binance', true);
+                setSectionState('section-binance', true);
+            } else {
+                var err = result.errors.length ? result.errors[0] : 'Cles invalides';
+                setStatus('binance-status', err, false);
+                setBadge('badge-binance', false);
+                setSectionState('section-binance', false);
+            }
+        } catch (e) {
+            setStatus('binance-status', 'Erreur reseau', false);
+        }
+    }
+
+    async function saveConfig() {
+        var btn = document.getElementById('btn-launch');
+        var errDiv = document.getElementById('global-errors');
+        errDiv.classList.add('hidden');
+        btn.disabled = true;
+        btn.textContent = 'Configuration en cours...';
+
+        var data = getFormData();
+
+        // Client-side validation
+        var missing = [];
+        if (!data.leader_url) missing.push('URL du leader');
+        if (!data.signal_secret) missing.push('Code secret');
+        if (!data.binance_api_key) missing.push('Cle API Binance');
+        if (!data.binance_api_secret) missing.push('Secret API Binance');
+        if (missing.length) {
+            errDiv.textContent = 'Champs manquants : ' + missing.join(', ');
+            errDiv.classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = 'Lancer Calv-a-lot';
+            return;
+        }
+
+        try {
+            var resp = await fetch('/api/setup/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data),
+            });
+            var result = await resp.json();
+            if (result.success) {
+                btn.textContent = 'C\'est parti !';
+                btn.style.background = 'var(--positive)';
+                setTimeout(function() { window.location.href = '/'; }, 1000);
+            } else {
+                errDiv.textContent = result.error || 'Erreur inconnue';
+                errDiv.classList.remove('hidden');
+                btn.disabled = false;
+                btn.textContent = 'Lancer Calv-a-lot';
+            }
+        } catch (e) {
+            errDiv.textContent = 'Erreur de connexion au serveur';
+            errDiv.classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = 'Lancer Calv-a-lot';
+        }
+    }
+    </script>
+</body>
+</html>
