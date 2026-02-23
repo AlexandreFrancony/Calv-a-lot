@@ -163,12 +163,24 @@ docker ps | grep calvalot
 | `/api/agent/status` | GET | Status du poller |
 | `/api/agent/toggle` | POST | Pause/resume le poller |
 
+## Auto-update
+
+Calv-a-lot se met a jour automatiquement quand un nouveau commit est pousse sur le repo :
+
+1. Cash-a-lot verifie la derniere version via l'API GitHub (toutes les 15 min)
+2. Si la version du follower est differente, Cash-a-lot ajoute `update.required` au signal
+3. Calv-a-lot detecte le flag et ecrit `UPDATE_REQUESTED` dans `/app/data/`
+4. Le script `updater.sh` (cron toutes les 5 min) fait `git pull` + `docker compose up -d --build`
+
+> **Prerequis** : `CALVALOT_REPO` et `GITHUB_TOKEN` doivent etre configures dans le `.env` de Cash-a-lot. Le cron est installe automatiquement par `start.sh`.
+
 ## Architecture technique
 
 - **Python 3.11** + Flask + gunicorn (1 worker, 2 threads)
 - **SQLite** en WAL mode (zero dependance externe)
 - **Docker** : non-root user, no-new-privileges, 192MB RAM max
 - **Polling** thread-based (pas de cron, pas d'APScheduler)
+- **Auto-update** via signal Cash-a-lot + cron `updater.sh`
 - Pas d'appels a Claude AI (seul Cash-a-lot utilise l'IA)
 
 ## Troubleshooting
